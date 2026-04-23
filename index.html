@@ -14,8 +14,8 @@
         --btn-func: #4a4a4f;
         --btn-top: #8d9093;
         --btn-del: #ce363c;
-        --text-shift: #b87b00; /* 加深並提高飽和度的深金黃色，增加與銀色背景的對比 */
-        --text-alpha: #cc3333; /* 同步微調紅色使其更清晰 */
+        --text-shift: #9e6b00; /* 更深、對比度更高的深金黃色 */
+        --text-alpha: #cc3333; 
     }
 
     * { box-sizing: border-box; user-select: none; }
@@ -26,13 +26,13 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
-        background-color: #ffffff; /* 將背景顏色改為純白色 */
+        background-color: #ffffff;
         font-family: 'Arial', sans-serif;
     }
 
     .calculator {
         position: relative;
-        width: 330px; /* 將寬度縮窄，讓比例更修長 */
+        width: 330px; 
         background: var(--dark-body);
         border-radius: 35px 35px 50px 50px;
         box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 2px 5px rgba(255,255,255,0.2);
@@ -161,7 +161,7 @@
     .grid {
         display: grid;
         grid-template-columns: repeat(5, 1fr);
-        gap: 18px 9px; /* 加大上下列的間距 (18px)，避免與標籤重疊 */
+        gap: 18px 9px; 
         align-items: end;
     }
 
@@ -177,7 +177,7 @@
     }
 
     .dpad {
-        width: 78px; /* 配合整體縮窄微調 */
+        width: 78px; 
         height: 62px;
         background: #5a5a5e;
         border-radius: 35px;
@@ -209,15 +209,19 @@
 
     .labels {
         position: absolute;
-        top: -16px; /* 微調標籤位置 */
-        font-size: 10px; /* 將字體放大一點 (從 9px 改為 10px) */
+        top: -16px; 
+        font-size: 10px; 
         width: 150%;
         text-align: center;
         white-space: nowrap;
-        pointer-events: none; /* 防止標籤擋住點擊 */
-        letter-spacing: 0.5px; /* 增加字距讓字體更易讀 */
+        pointer-events: none; 
+        letter-spacing: 0.5px; 
     }
-    .lbl-shift { color: var(--text-shift); font-weight: bold; }
+    .lbl-shift { 
+        color: var(--text-shift); 
+        font-weight: 900; 
+        text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); 
+    }
     .lbl-alpha { color: var(--text-alpha); font-weight: bold; }
 
     button {
@@ -255,7 +259,7 @@
         background: var(--btn-func);
         color: white;
         box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
-        height: 40px; /* 拉長按鍵高度 */
+        height: 40px; 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-func:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
@@ -265,7 +269,7 @@
         color: white;
         font-size: 18px;
         box-shadow: 0 4px 0 #000, 0 5px 5px rgba(0,0,0,0.4);
-        height: 42px; /* 拉長數字鍵高度 */
+        height: 42px; 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-num:active { box-shadow: 0 1px 0 #000, 0 2px 2px rgba(0,0,0,0.4); }
@@ -274,7 +278,7 @@
         background: var(--btn-func);
         color: var(--btn-del);
         box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
-        height: 42px; /* 拉長高度 */
+        height: 42px; 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-del:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
@@ -284,17 +288,68 @@
     .btn-prog { background: #e07a38; color: white; border-radius: 12px; height: 26px; box-shadow: 0 4px 0 #9e4e1a; }
     .btn-prog:active { box-shadow: 0 1px 0 #9e4e1a; }
     
-    .gap-row { height: 2px; grid-column: 1 / -1; } /* 縮小中間空隙列，因為 grid gap 已經加大了 */
+    .gap-row { height: 2px; grid-column: 1 / -1; } 
 
     /* Cursor */
     .cursor { animation: blink 1s step-end infinite; }
     @keyframes blink { 50% { opacity: 0; } }
 
+    /* 放大鏡按鈕樣式 */
+    .mag-btn {
+        position: fixed;
+        top: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #f0f0f0;
+        border: 2px solid #ccc;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        font-size: 22px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1001;
+        transition: all 0.3s ease;
+    }
+
+    .mag-btn:hover {
+        background-color: #e0e0e0;
+        transform: scale(1.05);
+    }
+
+    .mag-btn.active {
+        background-color: #4CAF50;
+        border-color: #388E3C;
+        color: white;
+        box-shadow: inset 0 3px 6px rgba(0,0,0,0.2);
+    }
+
+    /* 放大鏡鏡片樣式 */
+    .magnifier-lens {
+        display: none;
+        position: fixed;
+        width: 160px; /* 放大鏡直徑 */
+        height: 160px;
+        border-radius: 50%;
+        border: 3px solid #888;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.3);
+        background-color: #ffffff; /* 與背景色融合 */
+        overflow: hidden;
+        pointer-events: none; /* 讓點擊事件可以穿透放大鏡，不影響操作 */
+        z-index: 1000;
+    }
+
 </style>
 </head>
 <body>
 
-<div class="calculator">
+<!-- 放大鏡按鈕與鏡片 -->
+<button class="mag-btn" id="mag-btn" onclick="toggleMagnifier()" title="開啟/關閉放大鏡">🔍</button>
+<div class="magnifier-lens" id="lens"></div>
+
+<div class="calculator" id="main-calc">
     <div class="faceplate">
         <div class="top-brand">
             <div class="brand-text">CASIO</div>
@@ -471,7 +526,7 @@
     let isDeg = true;   // 角度模式 (true = Degree, false = Radian)
     let isShift = false;
     let calcState = 'NORMAL'; // 計數機狀態
-    let isResultDisplayed = false; // 新增：用來判斷畫面上是否為剛剛算出來的結果
+    let isResultDisplayed = false; // 用來判斷畫面上是否為剛剛算出來的結果
     let fmlaVars = { a: 0, b: 0, c: 0, x1: 0, x2: 0 }; // 二次方程變數
     let progVars = { a1: 0, b1: 0, c1: 0, a2: 0, b2: 0, c2: 0, x: 0, y: 0 }; // 二元一次方程變數
     
@@ -499,6 +554,11 @@
 
         display.innerHTML = displayText + '<span class="cursor">_</span>';
         indShift.innerText = isShift ? 'S' : '';
+        
+        // 確保放大鏡在狀態更新時同步顯示最新數字
+        if (isMagnifying) {
+            updateMagnifier();
+        }
     }
 
     function toggleShift() {
@@ -513,31 +573,27 @@
         indDeg.innerText = isDeg ? 'D' : 'R';
     }
 
-    // 處理連續輸入的邏輯（判斷是否要清除上一次的結果）
+    // 處理連續輸入的邏輯
     function prepareNewInput(str = null) {
         if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
             expr = '';
             history.innerText = '';
         }
 
-        // 離開公式/程式的結果顯示模式
         if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y') {
             calcState = 'NORMAL';
         }
 
-        // 如果當前畫面是運算結果
         if (isResultDisplayed) {
             isResultDisplayed = false;
             history.innerText = '';
-            // 判斷按下的鍵是否為接續的運算符號 (加入了 %)
             if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%'].includes(str)) {
-                expr = 'Ans'; // 如果是，自動帶入 Ans 繼續算
+                expr = 'Ans'; 
             } else {
-                expr = ''; // 如果是輸入數字或新函數，則清空重來
+                expr = ''; 
             }
         }
 
-        // 重置歷史紀錄狀態
         if (historyIndex !== -1 && historyIndex !== calcHistory.length) {
             historyIndex = calcHistory.length;
             history.innerText = '';
@@ -561,7 +617,7 @@
         updateDisplay();
     }
 
-    // 新增：處理百分比與開括號
+    // 處理百分比與開括號
     function insertOpenParenOrPercent() {
         if (isShift) {
             insertStr('%');
@@ -597,7 +653,6 @@
         return decimal.toString(); 
     }
 
-    // 處理 ab/c 鍵
     function handleFraction() {
         if (isShift) {
             try {
@@ -608,7 +663,7 @@
                     expr = toFraction(val);
                 }
                 isShift = false;
-                isResultDisplayed = true; // 標記為結果，讓下一步動作知道怎麼處理
+                isResultDisplayed = true; 
                 history.innerText = '';
                 updateDisplay();
             } catch (e) {
@@ -622,7 +677,6 @@
         }
     }
 
-    // 處理 Prog 與 FMLA 的指令輸入
     function insertCommand(cmd) {
         calcState = 'NORMAL';
         expr = cmd; 
@@ -673,7 +727,7 @@
         let record = calcHistory[historyIndex];
         history.innerText = record.expression;
         expr = record.result;
-        isResultDisplayed = true; // 瀏覽歷史紀錄也視同顯示結果
+        isResultDisplayed = true; 
         updateDisplay();
     }
 
@@ -692,7 +746,6 @@
             return;
         }
 
-        // 若正顯示最終結果，按 DEL 直接清空
         if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y' || isResultDisplayed) {
             clearAll();
             return;
@@ -734,7 +787,6 @@
         evalStr = evalStr.replace(/π/g, 'pi');
         evalStr = evalStr.replace(/⌟/g, '/'); 
         
-        // 將 % 符號直接替換為 /100 進行科學運算
         evalStr = evalStr.replace(/%/g, '/100');
         
         evalStr = evalStr.replace(/sin⁻¹/g, 'asin');
@@ -750,7 +802,6 @@
         evalStr = evalStr.replace(/E\((-?\d+)\)/g, '*10**$1');
         evalStr = evalStr.replace(/E(-?\d+)/g, '*10**$1');
 
-        // 更新自動補齊乘號邏輯 (現在 % 也支援隱式乘法，例如 5%(2) 會視為 5% * (2) )
         evalStr = evalStr.replace(/(\d|\)|pi|%)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|pi)/g, '$1*');
         evalStr = evalStr.replace(/(\)|pi|%)(?=\d)/g, '$1*');
 
@@ -893,13 +944,87 @@
 
             expr = result.toString();
             ans = result;
-            isResultDisplayed = true; // 計算完畢，標記為結果
+            isResultDisplayed = true; 
             updateDisplay();
         } catch (error) {
             expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
             updateDisplay();
         }
     }
+
+    /* ---------------- 放大鏡專屬邏輯 ---------------- */
+    let isMagnifying = false;
+    let lastMouseEvent = null;
+
+    function toggleMagnifier() {
+        isMagnifying = !isMagnifying;
+        const lens = document.getElementById('lens');
+        const btn = document.getElementById('mag-btn');
+
+        if (isMagnifying) {
+            lens.style.display = 'block';
+            btn.classList.add('active');
+            updateMagnifier(); 
+        } else {
+            lens.style.display = 'none';
+            lens.innerHTML = ''; // 清除拷貝
+            btn.classList.remove('active');
+        }
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        lastMouseEvent = e;
+        if (isMagnifying) updateMagnifier();
+    });
+
+    function updateMagnifier() {
+        if (!isMagnifying || !lastMouseEvent) return;
+        const e = lastMouseEvent;
+        const lens = document.getElementById('lens');
+        const calc = document.getElementById('main-calc');
+        const rect = calc.getBoundingClientRect();
+
+        // 初次生成時，將計數機的 DOM 結構複製進放大鏡裡
+        if (!lens.hasChildNodes()) {
+            const clone = calc.cloneNode(true);
+            clone.removeAttribute('id');
+            lens.appendChild(clone);
+        }
+
+        const calcClone = lens.firstChild;
+
+        // 同步兩個螢幕上的動態數值 (算式與歷史紀錄)
+        const origDisplay = document.getElementById('display');
+        const cloneDisplay = calcClone.querySelector('.screen-bottom');
+        if (cloneDisplay && origDisplay) cloneDisplay.innerHTML = origDisplay.innerHTML;
+
+        const origHistory = document.getElementById('history');
+        const cloneHistory = calcClone.querySelector('.screen-top');
+        if (cloneHistory && origHistory) cloneHistory.innerHTML = origHistory.innerHTML;
+
+        const origInd = document.querySelector('.indicators');
+        const cloneInd = calcClone.querySelector('.indicators');
+        if (cloneInd && origInd) cloneInd.innerHTML = origInd.innerHTML;
+
+        // 設定放大鏡自身的位置 (跟隨滑鼠中心)
+        const lensSize = 160; 
+        lens.style.left = (e.clientX - lensSize / 2) + 'px';
+        lens.style.top = (e.clientY - lensSize / 2) + 'px';
+
+        // 計算並偏移放大鏡裡面的計數機，以達成放大特定位置的錯覺
+        const relX = e.clientX - rect.left;
+        const relY = e.clientY - rect.top;
+        const zoom = 2; // 放大的倍數
+
+        calcClone.style.position = 'absolute';
+        calcClone.style.transform = `scale(${zoom})`;
+        calcClone.style.transformOrigin = '0 0';
+        calcClone.style.left = (lensSize / 2 - relX * zoom) + 'px';
+        calcClone.style.top = (lensSize / 2 - relY * zoom) + 'px';
+        calcClone.style.margin = '0';
+        calcClone.style.boxShadow = 'none'; // 移除拷貝體的陰影避免視覺穿幫
+    }
+
 </script>
 
 </body>
