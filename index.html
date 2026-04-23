@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Casio fx-50FH II 科學計數機</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+    :root {
+        --silver-bg: linear-gradient(170deg, #fdfdfd 0%, #dcdedd 40%, #a4a5a7 100%);
+        --dark-body: linear-gradient(170deg, #ececec 0%, #d1d2d4 50%, #9ea0a3 100%);
+        --screen-bg: #9ea79c;
+        --btn-num: #232323;
+        --btn-func: #4a4a4f;
+        --btn-top: #8d9093;
+        --btn-del: #ce363c;
+        --text-shift: #b87b00; /* 加深並提高飽和度的深金黃色，增加與銀色背景的對比 */
+        --text-alpha: #cc3333; /* 同步微調紅色使其更清晰 */
+    }
+
+    * { box-sizing: border-box; user-select: none; }
+
+    body {
+        margin: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #222;
+        font-family: 'Arial', sans-serif;
+    }
+
+    .calculator {
+        position: relative;
+        width: 330px; /* 將寬度縮窄，讓比例更修長 */
+        background: var(--dark-body);
+        border-radius: 35px 35px 50px 50px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 2px 5px rgba(255,255,255,0.2);
+        padding-bottom: 30px;
+        overflow: hidden;
+    }
+
+    /* 銀色面板 */
+    .faceplate {
+        background: var(--silver-bg);
+        border-radius: 30px 30px 100% 100% / 30px 30px 30px 30px;
+        padding: 25px 25px 40px 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    }
+
+    /* 頂部標誌與太陽能板 */
+    .top-brand {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 15px;
+    }
+
+    .brand-text {
+        font-weight: 900;
+        font-size: 20px;
+        letter-spacing: 1px;
+        color: #111;
+    }
+
+    .solar-panel {
+        width: 110px;
+        height: 28px;
+        background: linear-gradient(to right, #4a3b32, #2a1f1a, #4a3b32);
+        border: 2px solid #888;
+        border-radius: 3px;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.8);
+        display: flex;
+        gap: 2px;
+        padding: 1px;
+    }
+    
+    .solar-cell {
+        flex: 1;
+        background: #3b2a25;
+        border-right: 1px solid #222;
+    }
+
+    .model-info {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 5px;
+    }
+
+    .model-name {
+        font-style: italic;
+        font-size: 16px;
+        font-family: 'Times New Roman', serif;
+        color: #222;
+    }
+
+    .hkeaa-stamp {
+        font-size: 10px;
+        color: #d13015;
+        font-weight: bold;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        letter-spacing: 0.5px;
+    }
+
+    .hkeaa-stamp .bars { display: flex; gap: 2px; }
+    .hkeaa-stamp .bar { width: 5px; height: 10px; background: #d13015; }
+    .super-fx { color: #333; font-style: italic; font-size: 9px; }
+
+    /* 螢幕 */
+    .screen-wrapper {
+        background: var(--screen-bg);
+        border: 3px solid #777;
+        border-radius: 6px;
+        padding: 5px 10px;
+        box-shadow: inset 0 3px 8px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.5);
+        margin-bottom: 25px;
+        position: relative;
+    }
+
+    .indicators {
+        display: flex;
+        gap: 15px;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 12px;
+        color: #333;
+        min-height: 14px;
+        margin-bottom: 2px;
+    }
+
+    .screen-content {
+        font-family: 'Share Tech Mono', monospace;
+        text-align: right;
+    }
+
+    .screen-top {
+        font-size: 16px;
+        color: #222;
+        min-height: 20px;
+        letter-spacing: 1px;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .screen-bottom {
+        font-size: 38px;
+        color: #000;
+        line-height: 1;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    /* 按鍵區域 */
+    .keypad {
+        padding: 0 20px;
+        margin-top: -15px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 18px 9px; /* 加大上下列的間距 (18px)，避免與標籤重疊 */
+        align-items: end;
+    }
+
+    /* 方向鍵特製 */
+    .dpad-container {
+        grid-column: 2 / 5;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 60px;
+        margin-top: -10px;
+        margin-bottom: 10px;
+    }
+
+    .dpad {
+        width: 78px; /* 配合整體縮窄微調 */
+        height: 62px;
+        background: #5a5a5e;
+        border-radius: 35px;
+        box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 5px 10px rgba(0,0,0,0.5);
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #b0b0b0;
+        font-size: 9px;
+        font-weight: bold;
+        border: 1px solid #444;
+    }
+    
+    .dpad::after {
+        content: "REPLAY";
+        position: absolute;
+        top: 25px;
+        color: #ccc;
+    }
+
+    /* 按鍵共用樣式 */
+    .key-wrapper {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .labels {
+        position: absolute;
+        top: -16px; /* 微調標籤位置 */
+        font-size: 10px; /* 將字體放大一點 (從 9px 改為 10px) */
+        width: 150%;
+        text-align: center;
+        white-space: nowrap;
+        pointer-events: none; /* 防止標籤擋住點擊 */
+        letter-spacing: 0.5px; /* 增加字距讓字體更易讀 */
+    }
+    .lbl-shift { color: var(--text-shift); font-weight: bold; }
+    .lbl-alpha { color: var(--text-alpha); font-weight: bold; }
+
+    button {
+        width: 100%;
+        height: 32px;
+        border: none;
+        border-radius: 5px 5px 8px 8px;
+        font-family: 'Arial', sans-serif;
+        font-weight: bold;
+        font-size: 14px;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.05s, box-shadow 0.05s;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    button:active {
+        transform: translateY(3px);
+    }
+
+    /* 按鍵分類樣式 */
+    .btn-top {
+        background: var(--btn-top);
+        color: white;
+        box-shadow: 0 4px 0 #555, 0 5px 5px rgba(0,0,0,0.4);
+        border-radius: 12px;
+        height: 26px;
+        font-size: 11px;
+    }
+    .btn-top:active { box-shadow: 0 1px 0 #555, 0 2px 2px rgba(0,0,0,0.4); }
+
+    .btn-func {
+        background: var(--btn-func);
+        color: white;
+        box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
+        height: 40px; /* 拉長按鍵高度 */
+        border-radius: 6px 6px 10px 10px;
+    }
+    .btn-func:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
+
+    .btn-num {
+        background: var(--btn-num);
+        color: white;
+        font-size: 18px;
+        box-shadow: 0 4px 0 #000, 0 5px 5px rgba(0,0,0,0.4);
+        height: 42px; /* 拉長數字鍵高度 */
+        border-radius: 6px 6px 10px 10px;
+    }
+    .btn-num:active { box-shadow: 0 1px 0 #000, 0 2px 2px rgba(0,0,0,0.4); }
+
+    .btn-del {
+        background: var(--btn-func);
+        color: var(--btn-del);
+        box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
+        height: 42px; /* 拉長高度 */
+        border-radius: 6px 6px 10px 10px;
+    }
+    .btn-del:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
+
+    /* 特殊按鍵顏色 */
+    .btn-shift { background: #555; }
+    .btn-prog { background: #e07a38; color: white; border-radius: 12px; height: 26px; box-shadow: 0 4px 0 #9e4e1a; }
+    .btn-prog:active { box-shadow: 0 1px 0 #9e4e1a; }
+    
+    .gap-row { height: 2px; grid-column: 1 / -1; } /* 縮小中間空隙列，因為 grid gap 已經加大了 */
+
+    /* Cursor */
+    .cursor { animation: blink 1s step-end infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+</style>
+</head>
+<body>
+
+<div class="calculator">
+    <div class="faceplate">
+        <div class="top-brand">
+            <div class="brand-text">CASIO</div>
+            <div class="solar-panel">
+                <div class="solar-cell"></div><div class="solar-cell"></div><div class="solar-cell"></div><div class="solar-cell"></div>
+            </div>
+        </div>
+        
+        <div class="model-info">
+            <div class="model-name">fx-50FH II</div>
+            <div>
+                <div class="hkeaa-stamp">
+                    <div class="bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+                    H.K.E.A.A. APPROVED
+                </div>
+                <div class="super-fx" style="text-align: right;">SUPER-FX PLUS</div>
+            </div>
+        </div>
+
+        <div class="screen-wrapper">
+            <div class="indicators">
+                <span id="ind-shift"></span>
+                <span id="ind-alpha"></span>
+                <span id="ind-math">M</span>
+                <span id="ind-deg">D</span>
+            </div>
+            <div class="screen-content">
+                <div class="screen-top" id="history"></div>
+                <div class="screen-bottom" id="display">0<span class="cursor">_</span></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Row 1 -->
+            <div class="key-wrapper">
+                <button class="btn-top btn-shift" onclick="toggleShift()">SHIFT</button>
+            </div>
+            <div class="key-wrapper">
+                <button class="btn-top btn-shift" onclick="toggleAlpha()">ALPHA</button>
+            </div>
+            <div class="dpad-container" style="grid-column: 3/4; grid-row: 1/3; margin:0; height:100%; display:flex; align-items:flex-start;">
+                <!-- D-PAD Representation -->
+                <div class="dpad">
+                    <div style="position:absolute; top:5px; width:30px; height:20px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(-1)">▲</div>
+                    <div style="position:absolute; bottom:5px; width:30px; height:20px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(1)">▼</div>
+                    <div style="position:absolute; left:10px;">◀</div>
+                    <div style="position:absolute; right:10px;">▶</div>
+                </div>
+            </div>
+            <div class="key-wrapper" style="grid-column: 4/5;">
+                <div class="labels"><span class="lbl-shift">SETUP</span></div>
+                <button class="btn-top" onclick="toggleDegRad()">MODE</button>
+            </div>
+            <div class="key-wrapper" style="grid-column: 5/6;">
+                <button class="btn-top" onclick="clearAll()">ON</button>
+            </div>
+
+            <!-- Row 2 -->
+            <div class="key-wrapper" style="grid-column: 1/2;">
+                <div class="labels"><span class="lbl-shift">EXIT</span></div>
+                <button class="btn-prog" onclick="insertCommand('Prog ')">Prog</button>
+            </div>
+            <div class="key-wrapper" style="grid-column: 2/3;">
+                <button class="btn-prog" onclick="insertCommand('FMLA ')">FMLA</button>
+            </div>
+            <div class="key-wrapper" style="grid-column: 4/5;">
+                <div class="labels"><span class="lbl-shift">x!</span></div>
+                <button class="btn-top" onclick="insertStr('⁻¹')">x⁻¹</button>
+            </div>
+            <div class="key-wrapper" style="grid-column: 5/6;">
+                <div class="labels"><span class="lbl-shift">³√</span></div>
+                <button class="btn-top" onclick="insertStr('³')">x³</button>
+            </div>
+
+            <!-- Row 3 -->
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">d/c</span></div>
+                <button class="btn-top" onclick="handleFraction()">ab/c</button>
+            </div>
+            <div class="key-wrapper">
+                <button class="btn-top" onclick="insertStr('√(')">√</button>
+            </div>
+            <div class="key-wrapper">
+                <button class="btn-top" onclick="insertStr('²')">x²</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">x√</span></div>
+                <button class="btn-top" onclick="insertStr('^(')">^</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">10^x</span></div>
+                <button class="btn-top" onclick="insertStr('log(')">log</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 下半部按鍵 -->
+    <div class="keypad">
+        <div class="grid">
+            <!-- Row 4 -->
+            <div class="key-wrapper"><button class="btn-top" onclick="insertStr('-')">(-)</button></div>
+            <div class="key-wrapper"><button class="btn-top" onclick="insertStr('°')">°' "</button></div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">sin⁻¹</span></div>
+                <button class="btn-top" onclick="insertTrig('sin')">sin</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">cos⁻¹</span></div>
+                <button class="btn-top" onclick="insertTrig('cos')">cos</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">tan⁻¹</span></div>
+                <button class="btn-top" onclick="insertTrig('tan')">tan</button>
+            </div>
+
+            <!-- Row 5 -->
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">STO</span></div>
+                <button class="btn-top" onclick="insertStr('RCL ')">RCL</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">←</span></div>
+                <button class="btn-top" onclick="insertStr('ENG')">ENG</button>
+            </div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">%</span></div>
+                <button class="btn-top" onclick="insertOpenParenOrPercent()">(</button>
+            </div>
+            <div class="key-wrapper"><button class="btn-top" onclick="insertStr(')')">)</button></div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">,</span></div>
+                <button class="btn-top" onclick="insertStr(',')">S-D</button>
+            </div>
+
+            <div class="gap-row"></div>
+
+            <!-- Numpad Row 1 -->
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('7')">7</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('8')">8</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('9')">9</button></div>
+            <div class="key-wrapper"><button class="btn-del" onclick="deleteLast()">DEL</button></div>
+            <div class="key-wrapper"><button class="btn-del" onclick="clearAll()">AC</button></div>
+
+            <!-- Numpad Row 2 -->
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('4')">4</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('5')">5</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('6')">6</button></div>
+            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('×')">×</button></div>
+            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('÷')">÷</button></div>
+
+            <!-- Numpad Row 3 -->
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('1')">1</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('2')">2</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('3')">3</button></div>
+            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('+')">+</button></div>
+            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('-')">-</button></div>
+
+            <!-- Numpad Row 4 -->
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('0')">0</button></div>
+            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('.')">.</button></div>
+            <div class="key-wrapper">
+                <div class="labels"><span class="lbl-shift">π</span></div>
+                <button class="btn-func" onclick="insertExpOrPi()">EXP</button>
+            </div>
+            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('Ans')">Ans</button></div>
+            <div class="key-wrapper"><button class="btn-func" onclick="calculate()">EXE</button></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let expr = '';      // 畫面上顯示的算式
+    let ans = 0;        // 上一次的結果
+    let isDeg = true;   // 角度模式 (true = Degree, false = Radian)
+    let isShift = false;
+    let calcState = 'NORMAL'; // 計數機狀態
+    let isResultDisplayed = false; // 新增：用來判斷畫面上是否為剛剛算出來的結果
+    let fmlaVars = { a: 0, b: 0, c: 0, x1: 0, x2: 0 }; // 二次方程變數
+    let progVars = { a1: 0, b1: 0, c1: 0, a2: 0, b2: 0, c2: 0, x: 0, y: 0 }; // 二元一次方程變數
+    
+    // 歷史紀錄陣列與指標
+    let calcHistory = [];
+    let historyIndex = -1;
+    
+    const display = document.getElementById('display');
+    const history = document.getElementById('history');
+    const indDeg = document.getElementById('ind-deg');
+    const indShift = document.getElementById('ind-shift');
+
+    function updateDisplay() {
+        // 加入閃爍游標效果
+        let displayText = expr || '0';
+        if (calcState === 'FMLA_A') displayText = 'a? ' + displayText;
+        else if (calcState === 'FMLA_B') displayText = 'b? ' + displayText;
+        else if (calcState === 'FMLA_C') displayText = 'c? ' + displayText;
+        else if (calcState === 'PROG_A1') displayText = 'a1? ' + displayText;
+        else if (calcState === 'PROG_B1') displayText = 'b1? ' + displayText;
+        else if (calcState === 'PROG_C1') displayText = 'c1? ' + displayText;
+        else if (calcState === 'PROG_A2') displayText = 'a2? ' + displayText;
+        else if (calcState === 'PROG_B2') displayText = 'b2? ' + displayText;
+        else if (calcState === 'PROG_C2') displayText = 'c2? ' + displayText;
+
+        display.innerHTML = displayText + '<span class="cursor">_</span>';
+        indShift.innerText = isShift ? 'S' : '';
+    }
+
+    function toggleShift() {
+        isShift = !isShift;
+        updateDisplay();
+    }
+
+    function toggleAlpha() {}
+
+    function toggleDegRad() {
+        isDeg = !isDeg;
+        indDeg.innerText = isDeg ? 'D' : 'R';
+    }
+
+    // 處理連續輸入的邏輯（判斷是否要清除上一次的結果）
+    function prepareNewInput(str = null) {
+        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
+            expr = '';
+            history.innerText = '';
+        }
+
+        // 離開公式/程式的結果顯示模式
+        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y') {
+            calcState = 'NORMAL';
+        }
+
+        // 如果當前畫面是運算結果
+        if (isResultDisplayed) {
+            isResultDisplayed = false;
+            history.innerText = '';
+            // 判斷按下的鍵是否為接續的運算符號 (加入了 %)
+            if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%'].includes(str)) {
+                expr = 'Ans'; // 如果是，自動帶入 Ans 繼續算
+            } else {
+                expr = ''; // 如果是輸入數字或新函數，則清空重來
+            }
+        }
+
+        // 重置歷史紀錄狀態
+        if (historyIndex !== -1 && historyIndex !== calcHistory.length) {
+            historyIndex = calcHistory.length;
+            history.innerText = '';
+        }
+    }
+
+    function insertTrig(func) {
+        prepareNewInput();
+        if (isShift) {
+            expr += func + '⁻¹(';
+            isShift = false; 
+        } else {
+            expr += func + '(';
+        }
+        updateDisplay();
+    }
+
+    function insertStr(str) {
+        prepareNewInput(str);
+        expr += str;
+        updateDisplay();
+    }
+
+    // 新增：處理百分比與開括號
+    function insertOpenParenOrPercent() {
+        if (isShift) {
+            insertStr('%');
+            isShift = false;
+        } else {
+            insertStr('(');
+        }
+        updateDisplay();
+    }
+
+    // 小數與分數互相轉換的演算法
+    function toFraction(decimal) {
+        if (!isFinite(decimal) || isNaN(decimal)) return decimal.toString();
+        let sign = decimal < 0 ? -1 : 1;
+        let x = Math.abs(decimal);
+        if (x % 1 === 0) return (sign * x).toString(); 
+        
+        let h1 = 1, h2 = 0;
+        let k1 = 0, k2 = 1;
+        let b = x;
+        let maxDenominator = 100000; 
+        
+        do {
+            let a = Math.floor(b);
+            let aux = h1; h1 = a * h1 + h2; h2 = aux;
+            aux = k1; k1 = a * k1 + k2; k2 = aux;
+            b = 1 / (b - a);
+        } while (Math.abs(x - h1 / k1) > 1e-10 && k1 <= maxDenominator);
+        
+        if (Math.abs(x - h1 / k1) <= 1e-9) {
+            return (sign * h1) + '⌟' + k1;
+        }
+        return decimal.toString(); 
+    }
+
+    // 處理 ab/c 鍵
+    function handleFraction() {
+        if (isShift) {
+            try {
+                let val = evaluateMathString(expr || '0');
+                if (expr.includes('⌟')) {
+                    expr = val.toString();
+                } else {
+                    expr = toFraction(val);
+                }
+                isShift = false;
+                isResultDisplayed = true; // 標記為結果，讓下一步動作知道怎麼處理
+                history.innerText = '';
+                updateDisplay();
+            } catch (e) {
+                expr = 'Math ERROR';
+                updateDisplay();
+            }
+        } else {
+            prepareNewInput('⌟');
+            expr += '⌟';
+            updateDisplay();
+        }
+    }
+
+    // 處理 Prog 與 FMLA 的指令輸入
+    function insertCommand(cmd) {
+        calcState = 'NORMAL';
+        expr = cmd; 
+        history.innerText = ''; 
+        isShift = false; 
+        isResultDisplayed = false;
+        updateDisplay();
+    }
+
+    function insertExpOrPi() {
+        if (isShift) {
+            insertStr('π');
+            isShift = false;
+        } else {
+            insertStr('E');
+        }
+        updateDisplay();
+    }
+
+    function startQuadraticProgram() {
+        calcState = 'FMLA_A';
+        expr = '';
+        history.innerText = 'ax² + bx + c = 0';
+        isResultDisplayed = false;
+        updateDisplay();
+    }
+
+    function startLinearProgram() {
+        calcState = 'PROG_A1';
+        expr = '';
+        history.innerText = 'anX + bnY = cn';
+        isResultDisplayed = false;
+        updateDisplay();
+    }
+
+    function navigateHistory(direction) {
+        if (calcHistory.length === 0 || calcState !== 'NORMAL') return;
+
+        if (historyIndex === -1) {
+            historyIndex = calcHistory.length - 1; 
+        } else {
+            historyIndex += direction;
+        }
+
+        if (historyIndex < 0) historyIndex = calcHistory.length - 1;
+        if (historyIndex >= calcHistory.length) historyIndex = 0;
+
+        let record = calcHistory[historyIndex];
+        history.innerText = record.expression;
+        expr = record.result;
+        isResultDisplayed = true; // 瀏覽歷史紀錄也視同顯示結果
+        updateDisplay();
+    }
+
+    function clearAll() {
+        calcState = 'NORMAL';
+        expr = '';
+        history.innerText = '';
+        historyIndex = calcHistory.length; 
+        isResultDisplayed = false;
+        updateDisplay();
+    }
+
+    function deleteLast() {
+        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
+            clearAll();
+            return;
+        }
+
+        // 若正顯示最終結果，按 DEL 直接清空
+        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y' || isResultDisplayed) {
+            clearAll();
+            return;
+        }
+        
+        if (expr.endsWith('sin⁻¹(') || expr.endsWith('cos⁻¹(') || expr.endsWith('tan⁻¹(')) {
+            expr = expr.slice(0, -6); 
+        } else if (expr.endsWith('FMLA ') || expr.endsWith('Prog ')) {
+            expr = expr.slice(0, -5);
+        } else if (expr.endsWith('sin(') || expr.endsWith('cos(') || expr.endsWith('tan(') || expr.endsWith('log(')) {
+            expr = expr.slice(0, -4);
+        } else if (expr.endsWith('ln(') || expr.endsWith('Ans')) {
+            expr = expr.slice(0, -3);
+        } else {
+            expr = expr.slice(0, -1);
+        }
+        updateDisplay();
+    }
+
+    const mathLib = {
+        sin: (x) => Math.sin(isDeg ? x * Math.PI / 180 : x),
+        cos: (x) => Math.cos(isDeg ? x * Math.PI / 180 : x),
+        tan: (x) => Math.tan(isDeg ? x * Math.PI / 180 : x),
+        asin: (x) => isDeg ? Math.asin(x) * 180 / Math.PI : Math.asin(x),
+        acos: (x) => isDeg ? Math.acos(x) * 180 / Math.PI : Math.acos(x),
+        atan: (x) => isDeg ? Math.atan(x) * 180 / Math.PI : Math.atan(x),
+        log: Math.log10,
+        ln: Math.log,
+        sqrt: Math.sqrt,
+        pi: Math.PI
+    };
+
+    function evaluateMathString(inputExpr) {
+        let evalStr = inputExpr;
+
+        evalStr = evalStr.replace(/×/g, '*');
+        evalStr = evalStr.replace(/÷/g, '/');
+        evalStr = evalStr.replace(/Ans/g, `(${ans})`);
+        evalStr = evalStr.replace(/π/g, 'pi');
+        evalStr = evalStr.replace(/⌟/g, '/'); 
+        
+        // 將 % 符號直接替換為 /100 進行科學運算
+        evalStr = evalStr.replace(/%/g, '/100');
+        
+        evalStr = evalStr.replace(/sin⁻¹/g, 'asin');
+        evalStr = evalStr.replace(/cos⁻¹/g, 'acos');
+        evalStr = evalStr.replace(/tan⁻¹/g, 'atan');
+        evalStr = evalStr.replace(/√/g, 'sqrt');
+
+        evalStr = evalStr.replace(/²/g, '**2');
+        evalStr = evalStr.replace(/³/g, '**3');
+        evalStr = evalStr.replace(/⁻¹/g, '**-1');
+        evalStr = evalStr.replace(/\^/g, '**');
+
+        evalStr = evalStr.replace(/E\((-?\d+)\)/g, '*10**$1');
+        evalStr = evalStr.replace(/E(-?\d+)/g, '*10**$1');
+
+        // 更新自動補齊乘號邏輯 (現在 % 也支援隱式乘法，例如 5%(2) 會視為 5% * (2) )
+        evalStr = evalStr.replace(/(\d|\)|pi|%)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|pi)/g, '$1*');
+        evalStr = evalStr.replace(/(\)|pi|%)(?=\d)/g, '$1*');
+
+        let openBrackets = (evalStr.match(/\(/g) || []).length;
+        let closeBrackets = (evalStr.match(/\)/g) || []).length;
+        for(let i = 0; i < (openBrackets - closeBrackets); i++) {
+            evalStr += ')';
+        }
+
+        let result = new Function('mathLib', `
+            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, pi } = mathLib;
+            return ${evalStr};
+        `)(mathLib);
+
+        if (!isFinite(result) || isNaN(result)) {
+            throw new Error("Math ERROR");
+        }
+
+        return parseFloat(result.toPrecision(12));
+    }
+
+    function handleProgExe() {
+        try {
+            let val = expr ? evaluateMathString(expr) : 0;
+            
+            if (calcState === 'PROG_A1') {
+                progVars.a1 = val; calcState = 'PROG_B1'; expr = ''; history.innerText = `a1 = ${val}`;
+            } else if (calcState === 'PROG_B1') {
+                progVars.b1 = val; calcState = 'PROG_C1'; expr = ''; history.innerText = `b1 = ${val}`;
+            } else if (calcState === 'PROG_C1') {
+                progVars.c1 = val; calcState = 'PROG_A2'; expr = ''; history.innerText = `c1 = ${val}`;
+            } else if (calcState === 'PROG_A2') {
+                progVars.a2 = val; calcState = 'PROG_B2'; expr = ''; history.innerText = `a2 = ${val}`;
+            } else if (calcState === 'PROG_B2') {
+                progVars.b2 = val; calcState = 'PROG_C2'; expr = ''; history.innerText = `b2 = ${val}`;
+            } else if (calcState === 'PROG_C2') {
+                progVars.c2 = val;
+                
+                let D = progVars.a1 * progVars.b2 - progVars.a2 * progVars.b1;
+                if (D === 0) throw new Error("Math ERROR"); 
+                
+                progVars.x = (progVars.c1 * progVars.b2 - progVars.c2 * progVars.b1) / D;
+                progVars.y = (progVars.a1 * progVars.c2 - progVars.a2 * progVars.c1) / D;
+                
+                progVars.x = parseFloat(progVars.x.toPrecision(12));
+                progVars.y = parseFloat(progVars.y.toPrecision(12));
+
+                calcState = 'PROG_X';
+                history.innerText = 'x =';
+                expr = progVars.x.toString();
+                ans = progVars.x;
+                isResultDisplayed = true;
+            } else if (calcState === 'PROG_X') {
+                calcState = 'PROG_Y';
+                history.innerText = 'y =';
+                expr = progVars.y.toString();
+                ans = progVars.y;
+                isResultDisplayed = true;
+            } else if (calcState === 'PROG_Y') {
+                calcState = 'NORMAL';
+                history.innerText = '';
+                expr = ans.toString();
+                isResultDisplayed = true;
+            }
+            updateDisplay();
+        } catch (error) {
+            calcState = 'NORMAL';
+            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
+            updateDisplay();
+        }
+    }
+
+    function handleFMLAExe() {
+        try {
+            let val = expr ? evaluateMathString(expr) : 0;
+            
+            if (calcState === 'FMLA_A') {
+                fmlaVars.a = val; calcState = 'FMLA_B'; expr = ''; history.innerText = `a = ${val}`;
+            } else if (calcState === 'FMLA_B') {
+                fmlaVars.b = val; calcState = 'FMLA_C'; expr = ''; history.innerText = `b = ${val}`;
+            } else if (calcState === 'FMLA_C') {
+                fmlaVars.c = val;
+                let delta = fmlaVars.b ** 2 - 4 * fmlaVars.a * fmlaVars.c;
+                
+                if (fmlaVars.a === 0) {
+                    if (fmlaVars.b === 0) throw new Error("Math ERROR");
+                    fmlaVars.x1 = -fmlaVars.c / fmlaVars.b;
+                    fmlaVars.x2 = fmlaVars.x1;
+                } else if (delta < 0) {
+                    throw new Error("Math ERROR"); 
+                } else {
+                    fmlaVars.x1 = (-fmlaVars.b + Math.sqrt(delta)) / (2 * fmlaVars.a);
+                    fmlaVars.x2 = (-fmlaVars.b - Math.sqrt(delta)) / (2 * fmlaVars.a);
+                }
+                
+                fmlaVars.x1 = parseFloat(fmlaVars.x1.toPrecision(12));
+                fmlaVars.x2 = parseFloat(fmlaVars.x2.toPrecision(12));
+
+                calcState = 'FMLA_X1';
+                history.innerText = 'x1 =';
+                expr = fmlaVars.x1.toString();
+                ans = fmlaVars.x1;
+                isResultDisplayed = true;
+            } else if (calcState === 'FMLA_X1') {
+                calcState = 'FMLA_X2';
+                history.innerText = 'x2 =';
+                expr = fmlaVars.x2.toString();
+                ans = fmlaVars.x2;
+                isResultDisplayed = true;
+            } else if (calcState === 'FMLA_X2') {
+                calcState = 'NORMAL';
+                history.innerText = '';
+                expr = ans.toString();
+                isResultDisplayed = true;
+            }
+            updateDisplay();
+        } catch (error) {
+            calcState = 'NORMAL';
+            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
+            updateDisplay();
+        }
+    }
+
+    function calculate() {
+        if (calcState.startsWith('FMLA_')) { handleFMLAExe(); return; }
+        if (calcState.startsWith('PROG_')) { handleProgExe(); return; }
+        if (!expr) return;
+
+        let trimmedExpr = expr.trim();
+        if (trimmedExpr === 'FMLA 01' || trimmedExpr === 'FMLA 1') { startQuadraticProgram(); return; }
+        if (trimmedExpr === 'Prog 01' || trimmedExpr === 'Prog 1') { startLinearProgram(); return; }
+
+        history.innerText = expr;
+
+        try {
+            let result = evaluateMathString(expr);
+            
+            calcHistory.push({ expression: expr, result: result.toString() });
+            historyIndex = calcHistory.length; 
+
+            expr = result.toString();
+            ans = result;
+            isResultDisplayed = true; // 計算完畢，標記為結果
+            updateDisplay();
+        } catch (error) {
+            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
+            updateDisplay();
+        }
+    }
+</script>
+
+</body>
+</html>
