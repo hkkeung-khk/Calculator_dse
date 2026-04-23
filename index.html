@@ -14,7 +14,7 @@
         --btn-func: #4a4a4f;
         --btn-top: #8d9093;
         --btn-del: #ce363c;
-        --text-shift: #9e6b00; /* 更深、對比度更高的深金黃色 */
+        --text-shift: #9e6b00;
         --text-alpha: #cc3333; 
     }
 
@@ -23,16 +23,154 @@
     body {
         margin: 0;
         display: flex;
+        flex-wrap: wrap; 
         justify-content: center;
         align-items: center;
+        gap: 30px; 
         min-height: 100vh;
         background-color: #ffffff;
         font-family: 'Arial', sans-serif;
+        padding: 70px 20px 20px 20px; 
     }
 
+    /* --- 頂部控制按鈕 --- */
+    .top-controls {
+        position: fixed;
+        top: 20px;
+        left: 20px;
+        z-index: 999;
+        display: flex;
+        gap: 15px;
+    }
+
+    .panel-toggle-btn {
+        background: #333;
+        color: white;
+        border: none;
+        padding: 10px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        transition: background 0.2s;
+    }
+    .panel-toggle-btn:hover { background: #555; }
+    
+    .mag-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        background-color: #f0f0f0;
+        border: 2px solid #ccc;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        font-size: 18px;
+        cursor: pointer;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+    .mag-btn:hover { background-color: #e0e0e0; transform: scale(1.05); }
+    .mag-btn.active { background-color: #4CAF50; border-color: #388E3C; color: white; box-shadow: inset 0 3px 6px rgba(0,0,0,0.2); }
+
+    /* --- 記錄面板樣式 --- */
+    .record-panel-wrapper {
+        display: none; 
+        width: 100%;
+        max-width: 280px;
+        animation: fadeIn 0.3s ease;
+    }
+    .record-panel-wrapper.open {
+        display: block;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .record-panel {
+        width: 100%;
+        height: 550px; 
+        background: #f9f9f9;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        border: 2px solid #ddd;
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .record-panel h3 {
+        margin-top: 0;
+        text-align: center;
+        color: #333;
+        font-size: 18px;
+        border-bottom: 2px solid #eee;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+    }
+
+    .controls {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+
+    .controls button {
+        flex: 1;
+        padding: 8px 5px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: bold;
+        transition: all 0.2s;
+        background: #e0e0e0;
+        color: #333;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .controls button:active { transform: translateY(2px); box-shadow: 0 2px 3px rgba(0,0,0,0.1); }
+
+    #record-btn { background: #4CAF50; color: white; }
+    #record-btn.recording { background: #ce363c; color: white; }
+    #replay-btn { background: #2196F3; color: white; }
+    #replay-btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    #step-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    #step-list li {
+        padding: 10px 12px;
+        background: #ffffff;
+        margin-bottom: 8px;
+        border-radius: 6px;
+        border-left: 5px solid #ddd;
+        font-family: monospace;
+        font-size: 14px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: background 0.3s, border-color 0.3s;
+    }
+
+    #step-list li.playing {
+        background: #e3f2fd;
+        border-left-color: #2196F3;
+        font-weight: bold;
+        color: #0d47a1;
+        transform: scale(1.02);
+    }
+
+    /* --- 計數機主體樣式 --- */
     .calculator {
         position: relative;
-        width: 330px; 
+        width: 95vw; 
+        max-width: 330px; 
         background: var(--dark-body);
         border-radius: 35px 35px 50px 50px;
         box-shadow: 0 20px 50px rgba(0,0,0,0.8), inset 0 2px 5px rgba(255,255,255,0.2);
@@ -40,31 +178,30 @@
         overflow: hidden;
     }
 
-    /* 銀色面板 */
     .faceplate {
         background: var(--silver-bg);
         border-radius: 30px 30px 100% 100% / 30px 30px 30px 30px;
-        padding: 25px 25px 40px 25px;
+        padding: 25px 12px 40px 12px; 
         box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     }
 
-    /* 頂部標誌與太陽能板 */
     .top-brand {
         display: flex;
         justify-content: space-between;
         align-items: flex-start;
         margin-bottom: 15px;
+        padding: 0 8px; 
     }
 
     .brand-text {
         font-weight: 900;
-        font-size: 20px;
+        font-size: clamp(16px, 5vw, 20px);
         letter-spacing: 1px;
         color: #111;
     }
 
     .solar-panel {
-        width: 110px;
+        width: 35%;
         height: 28px;
         background: linear-gradient(to right, #4a3b32, #2a1f1a, #4a3b32);
         border: 2px solid #888;
@@ -75,22 +212,19 @@
         padding: 1px;
     }
     
-    .solar-cell {
-        flex: 1;
-        background: #3b2a25;
-        border-right: 1px solid #222;
-    }
+    .solar-cell { flex: 1; background: #3b2a25; border-right: 1px solid #222; }
 
     .model-info {
         display: flex;
         justify-content: space-between;
         align-items: flex-end;
         margin-bottom: 5px;
+        padding: 0 8px; 
     }
 
     .model-name {
         font-style: italic;
-        font-size: 16px;
+        font-size: clamp(12px, 4vw, 16px);
         font-family: 'Times New Roman', serif;
         color: #222;
     }
@@ -104,19 +238,17 @@
         gap: 4px;
         letter-spacing: 0.5px;
     }
-
     .hkeaa-stamp .bars { display: flex; gap: 2px; }
     .hkeaa-stamp .bar { width: 5px; height: 10px; background: #d13015; }
     .super-fx { color: #333; font-style: italic; font-size: 9px; }
 
-    /* 螢幕 */
     .screen-wrapper {
         background: var(--screen-bg);
         border: 3px solid #777;
         border-radius: 6px;
         padding: 5px 10px;
         box-shadow: inset 0 3px 8px rgba(0,0,0,0.4), 0 2px 0 rgba(255,255,255,0.5);
-        margin-bottom: 25px;
+        margin: 0 8px 35px 8px;
         position: relative;
     }
 
@@ -136,49 +268,57 @@
     }
 
     .screen-top {
-        font-size: 16px;
+        font-size: clamp(14px, 4.5vw, 18px); /* 稍微放大上一條紀錄的字體 */
         color: #222;
-        min-height: 20px;
+        min-height: 22px; /* 稍微增加高度以適應放大的字體 */
         letter-spacing: 1px;
         overflow: hidden;
         white-space: nowrap;
+        text-align: left; /* 將上方的歷史紀錄改為靠左對齊 */
     }
 
     .screen-bottom {
-        font-size: 38px;
+        font-size: clamp(28px, 9vw, 38px);
         color: #000;
         line-height: 1;
         overflow: hidden;
         white-space: nowrap;
     }
 
-    /* 按鍵區域 */
     .keypad {
-        padding: 0 20px;
-        margin-top: -15px;
+        padding: 0 6px; 
+        margin-top: 0;
     }
 
-    .grid {
+    /* === 分區排版系統 === */
+
+    .top-keys {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 0;
+    }
+
+    .top-side-keys {
         display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 18px 9px; 
-        align-items: end;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px 8px;
+        width: 35%;
     }
 
-    /* 方向鍵特製 */
     .dpad-container {
-        grid-column: 2 / 5;
+        width: 28%;
         display: flex;
         justify-content: center;
         align-items: center;
-        height: 60px;
-        margin-top: -10px;
-        margin-bottom: 10px;
     }
 
     .dpad {
-        width: 78px; 
-        height: 62px;
+        width: 100%; 
+        max-width: 65px; 
+        aspect-ratio: 70/58; 
+        height: auto;
         background: #5a5a5e;
         border-radius: 35px;
         box-shadow: inset 0 2px 4px rgba(255,255,255,0.3), 0 5px 10px rgba(0,0,0,0.5);
@@ -187,7 +327,7 @@
         justify-content: center;
         align-items: center;
         color: #b0b0b0;
-        font-size: 9px;
+        font-size: 7px;
         font-weight: bold;
         border: 1px solid #444;
     }
@@ -195,11 +335,25 @@
     .dpad::after {
         content: "REPLAY";
         position: absolute;
-        top: 25px;
+        top: 36%;
         color: #ccc;
+        pointer-events: none;
+        font-size: 7px;
     }
 
-    /* 按鍵共用樣式 */
+    .func-keys {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 18px 7px; 
+        margin-bottom: 25px;
+    }
+
+    .num-keys {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 15px 12px; 
+    }
+
     .key-wrapper {
         position: relative;
         display: flex;
@@ -207,31 +361,34 @@
         align-items: center;
     }
 
+    /* 標籤排版系統 */
     .labels {
         position: absolute;
-        top: -16px; 
-        font-size: 10px; 
-        width: 150%;
-        text-align: center;
-        white-space: nowrap;
+        top: -14px; 
+        width: 110%; 
+        left: -5%;   
+        font-size: clamp(7.5px, 2.2vw, 9.5px); 
+        display: flex;
+        justify-content: space-between;
         pointer-events: none; 
-        letter-spacing: 0.5px; 
+        letter-spacing: 0px; 
     }
-    .lbl-shift { 
-        color: var(--text-shift); 
-        font-weight: 900; 
-        text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); 
-    }
+
+    .lbl-left   { text-align: left; flex: 1; padding-left: 1px; }
+    .lbl-right  { text-align: right; flex: 1; padding-right: 1px; }
+    .lbl-center { text-align: center; width: 100%; }
+
+    .lbl-shift { color: var(--text-shift); font-weight: 900; text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); }
     .lbl-alpha { color: var(--text-alpha); font-weight: bold; }
+    .lbl-green { color: #007700; font-weight: bold; }
 
     button {
         width: 100%;
-        height: 32px;
         border: none;
         border-radius: 5px 5px 8px 8px;
         font-family: 'Arial', sans-serif;
         font-weight: bold;
-        font-size: 14px;
+        font-size: clamp(11px, 3.5vw, 14px);
         cursor: pointer;
         position: relative;
         transition: transform 0.05s, box-shadow 0.05s;
@@ -240,18 +397,16 @@
         align-items: center;
     }
 
-    button:active {
-        transform: translateY(3px);
-    }
+    button:active { transform: translateY(3px); }
 
-    /* 按鍵分類樣式 */
     .btn-top {
         background: var(--btn-top);
         color: white;
         box-shadow: 0 4px 0 #555, 0 5px 5px rgba(0,0,0,0.4);
         border-radius: 12px;
-        height: 26px;
-        font-size: 11px;
+        height: clamp(22px, 7vw, 26px);
+        font-size: clamp(9px, 2.5vw, 11px);
+        padding: 0;
     }
     .btn-top:active { box-shadow: 0 1px 0 #555, 0 2px 2px rgba(0,0,0,0.4); }
 
@@ -259,7 +414,7 @@
         background: var(--btn-func);
         color: white;
         box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
-        height: 40px; 
+        height: clamp(35px, 11vw, 40px); 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-func:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
@@ -267,9 +422,9 @@
     .btn-num {
         background: var(--btn-num);
         color: white;
-        font-size: 18px;
+        font-size: clamp(14px, 4.5vw, 18px);
         box-shadow: 0 4px 0 #000, 0 5px 5px rgba(0,0,0,0.4);
-        height: 42px; 
+        height: clamp(38px, 12vw, 42px); 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-num:active { box-shadow: 0 1px 0 #000, 0 2px 2px rgba(0,0,0,0.4); }
@@ -278,77 +433,69 @@
         background: var(--btn-func);
         color: var(--btn-del);
         box-shadow: 0 4px 0 #222, 0 5px 5px rgba(0,0,0,0.4);
-        height: 42px; 
+        height: clamp(38px, 12vw, 42px); 
         border-radius: 6px 6px 10px 10px;
     }
     .btn-del:active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4); }
 
-    /* 特殊按鍵顏色 */
     .btn-shift { background: #555; }
-    .btn-prog { background: #e07a38; color: white; border-radius: 12px; height: 26px; box-shadow: 0 4px 0 #9e4e1a; }
+    .btn-prog { background: #e07a38; color: white; border-radius: 12px; height: clamp(22px, 7vw, 26px); box-shadow: 0 4px 0 #9e4e1a; }
     .btn-prog:active { box-shadow: 0 1px 0 #9e4e1a; }
-    
-    .gap-row { height: 2px; grid-column: 1 / -1; } 
 
-    /* Cursor */
     .cursor { animation: blink 1s step-end infinite; }
     @keyframes blink { 50% { opacity: 0; } }
 
-    /* 放大鏡按鈕樣式 */
-    .mag-btn {
-        position: fixed;
-        top: 30px;
-        right: 30px;
-        width: 50px;
-        height: 50px;
-        border-radius: 50%;
-        background-color: #f0f0f0;
-        border: 2px solid #ccc;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        font-size: 22px;
-        cursor: pointer;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1001;
-        transition: all 0.3s ease;
+    button.simulated-active, .dpad div[onclick].simulated-active {
+        transform: translateY(3px) !important;
+        background-color: #ffff99 !important; 
+        color: #000 !important;
+        opacity: 0.9;
+        transition: none !important; 
     }
+    .btn-top.simulated-active { box-shadow: 0 1px 0 #555, 0 2px 2px rgba(0,0,0,0.4) !important; }
+    .btn-func.simulated-active, .btn-del.simulated-active { box-shadow: 0 1px 0 #222, 0 2px 2px rgba(0,0,0,0.4) !important; }
+    .btn-num.simulated-active { box-shadow: 0 1px 0 #000, 0 2px 2px rgba(0,0,0,0.4) !important; }
+    .dpad div[onclick].simulated-active { transform: scale(0.8) !important; color: white; background: none !important; text-shadow: 0 0 5px #fff; }
 
-    .mag-btn:hover {
-        background-color: #e0e0e0;
-        transform: scale(1.05);
-    }
-
-    .mag-btn.active {
-        background-color: #4CAF50;
-        border-color: #388E3C;
-        color: white;
-        box-shadow: inset 0 3px 6px rgba(0,0,0,0.2);
-    }
-
-    /* 放大鏡鏡片樣式 */
     .magnifier-lens {
         display: none;
         position: fixed;
-        width: 160px; /* 放大鏡直徑 */
+        width: 160px;
         height: 160px;
         border-radius: 50%;
         border: 3px solid #888;
         box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 0 15px rgba(0,0,0,0.3);
-        background-color: #ffffff; /* 與背景色融合 */
+        background-color: #ffffff;
         overflow: hidden;
-        pointer-events: none; /* 讓點擊事件可以穿透放大鏡，不影響操作 */
-        z-index: 1000;
+        pointer-events: none; 
+        z-index: 2000;
     }
 
 </style>
 </head>
 <body>
 
-<!-- 放大鏡按鈕與鏡片 -->
-<button class="mag-btn" id="mag-btn" onclick="toggleMagnifier()" title="開啟/關閉放大鏡">🔍</button>
+<!-- 頂部控制與放大鏡 -->
+<div class="top-controls">
+    <button class="panel-toggle-btn" id="toggle-panel-btn" onclick="toggleRecordPanel()">📜 展開記錄</button>
+    <button class="mag-btn" id="mag-btn" onclick="toggleMagnifier()" title="開啟/關閉放大鏡">🔍</button>
+</div>
+
 <div class="magnifier-lens" id="lens"></div>
 
+<!-- 記錄面板 (可折疊) -->
+<div class="record-panel-wrapper" id="record-wrapper">
+    <div class="record-panel">
+        <h3>📝 操作記錄</h3>
+        <div class="controls">
+            <button id="record-btn" onclick="toggleRecording()">▶ 記錄</button>
+            <button id="replay-btn" onclick="startReplay()" disabled>🔄 播放</button>
+        </div>
+        <ul id="step-list"></ul>
+    </div>
+</div>
+
+<!-- 計數機主體 -->
 <div class="calculator" id="main-calc">
     <div class="faceplate">
         <div class="top-brand">
@@ -382,212 +529,481 @@
             </div>
         </div>
 
-        <div class="grid">
-            <!-- Row 1 -->
-            <div class="key-wrapper">
-                <button class="btn-top btn-shift" onclick="toggleShift()">SHIFT</button>
-            </div>
-            <div class="key-wrapper">
-                <button class="btn-top btn-shift" onclick="toggleAlpha()">ALPHA</button>
-            </div>
-            <div class="dpad-container" style="grid-column: 3/4; grid-row: 1/3; margin:0; height:100%; display:flex; align-items:flex-start;">
-                <!-- D-PAD Representation -->
-                <div class="dpad">
-                    <div style="position:absolute; top:5px; width:30px; height:20px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(-1)">▲</div>
-                    <div style="position:absolute; bottom:5px; width:30px; height:20px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(1)">▼</div>
-                    <div style="position:absolute; left:10px;">◀</div>
-                    <div style="position:absolute; right:10px;">▶</div>
+        <div class="keypad">
+            
+            <!-- 第 1 區: 頂部控制按鍵 -->
+            <div class="top-keys">
+                <div class="top-side-keys">
+                    <div class="key-wrapper">
+                        <button class="btn-top btn-shift" onclick="toggleShift()">SHIFT</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <button class="btn-top btn-shift" onclick="toggleAlpha()">ALPHA</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <div class="labels"><span class="lbl-shift lbl-center">EXIT</span></div>
+                        <button class="btn-prog" onclick="insertCommand('Prog ')">Prog</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <button class="btn-prog" onclick="insertCommand('FMLA ')">FMLA</button>
+                    </div>
+                </div>
+
+                <div class="dpad-container">
+                    <div class="dpad">
+                        <div style="position:absolute; top:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(-1)">▲</div>
+                        <div style="position:absolute; bottom:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(1)">▼</div>
+                        <div style="position:absolute; left:6px; height:20px; display:flex; align-items:center; cursor:pointer;">◀</div>
+                        <div style="position:absolute; right:6px; height:20px; display:flex; align-items:center; cursor:pointer;">▶</div>
+                    </div>
+                </div>
+
+                <div class="top-side-keys">
+                    <div class="key-wrapper">
+                        <div class="labels"><span class="lbl-shift lbl-center">SETUP</span></div>
+                        <button class="btn-top" onclick="toggleDegRad()">MODE</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <button class="btn-top" onclick="clearAll()">ON</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <div class="labels"><span class="lbl-shift lbl-center">x!</span></div>
+                        <button class="btn-top" onclick="handleInvOrFact()">x⁻¹</button>
+                    </div>
+                    <div class="key-wrapper">
+                        <div class="labels"><span class="lbl-shift lbl-center">³√</span></div>
+                        <button class="btn-top" onclick="insertStr('³')">x³</button>
+                    </div>
                 </div>
             </div>
-            <div class="key-wrapper" style="grid-column: 4/5;">
-                <div class="labels"><span class="lbl-shift">SETUP</span></div>
-                <button class="btn-top" onclick="toggleDegRad()">MODE</button>
-            </div>
-            <div class="key-wrapper" style="grid-column: 5/6;">
-                <button class="btn-top" onclick="clearAll()">ON</button>
+
+            <!-- 第 2 區: 科學功能按鍵 -->
+            <div class="func-keys">
+                <!-- R1 -->
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">d/c</span></div>
+                    <button class="btn-top" onclick="handleFraction()">ab/c</button>
+                </div>
+                <div class="key-wrapper">
+                    <button class="btn-top" onclick="insertStr('√(')">√</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-green lbl-center">DEC</span></div>
+                    <button class="btn-top" onclick="insertStr('²')">x²</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">x√</span><span class="lbl-green lbl-right">HEX</span></div>
+                    <button class="btn-top" onclick="insertStr('^(')">^</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">10^x</span><span class="lbl-green lbl-right">BIN</span></div>
+                    <button class="btn-top" onclick="insertStr('log(')">log</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">e^x</span><span class="lbl-green lbl-right">OCT</span></div>
+                    <button class="btn-top" onclick="insertStr('ln(')">ln</button>
+                </div>
+
+                <!-- R2 (加入 Variables A-F 對應) -->
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">∠</span><span class="lbl-alpha lbl-right">A</span></div>
+                    <button class="btn-top" onclick="handleVarKey('A', () => insertStr('-'))">(-)</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">←</span><span class="lbl-alpha lbl-right">B</span></div>
+                    <button class="btn-top" onclick="handleVarKey('B', () => insertStr('°'))">°' "</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-alpha lbl-right">C</span></div>
+                    <button class="btn-top" onclick="handleVarKey('C', () => insertStr('hyp '))">hyp</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">sin⁻¹</span><span class="lbl-alpha lbl-right">D</span></div>
+                    <button class="btn-top" onclick="handleVarKey('D', () => insertTrig('sin'))">sin</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">cos⁻¹</span><span class="lbl-alpha lbl-right">E</span></div>
+                    <button class="btn-top" onclick="handleVarKey('E', () => insertTrig('cos'))">cos</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">tan⁻¹</span><span class="lbl-alpha lbl-right">F</span></div>
+                    <button class="btn-top" onclick="handleVarKey('F', () => insertTrig('tan'))">tan</button>
+                </div>
+
+                <!-- R3 (加入 Variables X, Y, M 對應與 RCL/STO) -->
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">STO</span></div>
+                    <button class="btn-top" onclick="handleRclSto()">RCL</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">←</span></div>
+                    <button class="btn-top" onclick="insertStr('ENG')">ENG</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-left">%</span><span class="lbl-alpha lbl-right">X</span></div>
+                    <button class="btn-top" onclick="handleVarKey('X', () => insertOpenParenOrPercent())">(</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-alpha lbl-right">Y</span></div>
+                    <button class="btn-top" onclick="handleVarKey('Y', () => insertStr(')'))">)</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-alpha lbl-right">M-</span></div>
+                    <button class="btn-top" onclick="insertStr(',')">,</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-alpha lbl-right">M</span></div>
+                    <button class="btn-top" onclick="handleVarKey('M', () => handleMPlus())">M+</button>
+                </div>
             </div>
 
-            <!-- Row 2 -->
-            <div class="key-wrapper" style="grid-column: 1/2;">
-                <div class="labels"><span class="lbl-shift">EXIT</span></div>
-                <button class="btn-prog" onclick="insertCommand('Prog ')">Prog</button>
-            </div>
-            <div class="key-wrapper" style="grid-column: 2/3;">
-                <button class="btn-prog" onclick="insertCommand('FMLA ')">FMLA</button>
-            </div>
-            <div class="key-wrapper" style="grid-column: 4/5;">
-                <div class="labels"><span class="lbl-shift">x!</span></div>
-                <button class="btn-top" onclick="insertStr('⁻¹')">x⁻¹</button>
-            </div>
-            <div class="key-wrapper" style="grid-column: 5/6;">
-                <div class="labels"><span class="lbl-shift">³√</span></div>
-                <button class="btn-top" onclick="insertStr('³')">x³</button>
-            </div>
+            <!-- 第 3 區: 底部數字區 -->
+            <div class="num-keys">
+                <!-- Row 1 -->
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('7')">7</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('8')">8</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('9')">9</button></div>
+                <div class="key-wrapper"><button class="btn-del" onclick="deleteLast()">DEL</button></div>
+                <div class="key-wrapper"><button class="btn-del" onclick="clearAll()">AC</button></div>
 
-            <!-- Row 3 -->
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">d/c</span></div>
-                <button class="btn-top" onclick="handleFraction()">ab/c</button>
-            </div>
-            <div class="key-wrapper">
-                <button class="btn-top" onclick="insertStr('√(')">√</button>
-            </div>
-            <div class="key-wrapper">
-                <button class="btn-top" onclick="insertStr('²')">x²</button>
-            </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">x√</span></div>
-                <button class="btn-top" onclick="insertStr('^(')">^</button>
-            </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">10^x</span></div>
-                <button class="btn-top" onclick="insertStr('log(')">log</button>
-            </div>
-        </div>
-    </div>
+                <!-- Row 2 -->
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('4')">4</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('5')">5</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('6')">6</button></div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">nPr</span></div>
+                    <button class="btn-func" onclick="handlePermComb('P', '×')">×</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">nCr</span></div>
+                    <button class="btn-func" onclick="handlePermComb('C', '÷')">÷</button>
+                </div>
 
-    <!-- 下半部按鍵 -->
-    <div class="keypad">
-        <div class="grid">
-            <!-- Row 4 -->
-            <div class="key-wrapper"><button class="btn-top" onclick="insertStr('-')">(-)</button></div>
-            <div class="key-wrapper"><button class="btn-top" onclick="insertStr('°')">°' "</button></div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">sin⁻¹</span></div>
-                <button class="btn-top" onclick="insertTrig('sin')">sin</button>
-            </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">cos⁻¹</span></div>
-                <button class="btn-top" onclick="insertTrig('cos')">cos</button>
-            </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">tan⁻¹</span></div>
-                <button class="btn-top" onclick="insertTrig('tan')">tan</button>
-            </div>
+                <!-- Row 3 -->
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('1')">1</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('2')">2</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('3')">3</button></div>
+                <div class="key-wrapper"><button class="btn-func" onclick="insertStr('+')">+</button></div>
+                <div class="key-wrapper"><button class="btn-func" onclick="insertStr('-')">-</button></div>
 
-            <!-- Row 5 -->
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">STO</span></div>
-                <button class="btn-top" onclick="insertStr('RCL ')">RCL</button>
+                <!-- Row 4 -->
+                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('0')">0</button></div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">Ran#</span></div>
+                    <button class="btn-num" onclick="handleDotOrRan()">.</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">π</span></div>
+                    <button class="btn-func" onclick="insertExpOrPi()">EXP</button>
+                </div>
+                <div class="key-wrapper"><button class="btn-func" onclick="insertStr('Ans')">Ans</button></div>
+                <div class="key-wrapper"><button class="btn-func" onclick="calculate()">EXE</button></div>
             </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">←</span></div>
-                <button class="btn-top" onclick="insertStr('ENG')">ENG</button>
-            </div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">%</span></div>
-                <button class="btn-top" onclick="insertOpenParenOrPercent()">(</button>
-            </div>
-            <div class="key-wrapper"><button class="btn-top" onclick="insertStr(')')">)</button></div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">,</span></div>
-                <button class="btn-top" onclick="insertStr(',')">S-D</button>
-            </div>
-
-            <div class="gap-row"></div>
-
-            <!-- Numpad Row 1 -->
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('7')">7</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('8')">8</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('9')">9</button></div>
-            <div class="key-wrapper"><button class="btn-del" onclick="deleteLast()">DEL</button></div>
-            <div class="key-wrapper"><button class="btn-del" onclick="clearAll()">AC</button></div>
-
-            <!-- Numpad Row 2 -->
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('4')">4</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('5')">5</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('6')">6</button></div>
-            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('×')">×</button></div>
-            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('÷')">÷</button></div>
-
-            <!-- Numpad Row 3 -->
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('1')">1</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('2')">2</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('3')">3</button></div>
-            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('+')">+</button></div>
-            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('-')">-</button></div>
-
-            <!-- Numpad Row 4 -->
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('0')">0</button></div>
-            <div class="key-wrapper"><button class="btn-num" onclick="insertStr('.')">.</button></div>
-            <div class="key-wrapper">
-                <div class="labels"><span class="lbl-shift">π</span></div>
-                <button class="btn-func" onclick="insertExpOrPi()">EXP</button>
-            </div>
-            <div class="key-wrapper"><button class="btn-func" onclick="insertStr('Ans')">Ans</button></div>
-            <div class="key-wrapper"><button class="btn-func" onclick="calculate()">EXE</button></div>
         </div>
     </div>
 </div>
 
 <script>
-    let expr = '';      // 畫面上顯示的算式
-    let ans = 0;        // 上一次的結果
-    let isDeg = true;   // 角度模式 (true = Degree, false = Radian)
+    // --- 介面控制：折疊/展開記錄面板 ---
+    function toggleRecordPanel() {
+        const wrapper = document.getElementById('record-wrapper');
+        const btn = document.getElementById('toggle-panel-btn');
+        if (wrapper.classList.contains('open')) {
+            wrapper.classList.remove('open');
+            btn.innerText = '📜 展開記錄';
+        } else {
+            wrapper.classList.add('open');
+            btn.innerText = '📜 隱藏記錄';
+        }
+    }
+
+    // --- 計數機核心狀態 ---
+    let expr = '';      
+    let ans = 0;        
+    let isDeg = true;   
     let isShift = false;
-    let calcState = 'NORMAL'; // 計數機狀態
-    let isResultDisplayed = false; // 用來判斷畫面上是否為剛剛算出來的結果
-    let fmlaVars = { a: 0, b: 0, c: 0, x1: 0, x2: 0 }; // 二次方程變數
-    let progVars = { a1: 0, b1: 0, c1: 0, a2: 0, b2: 0, c2: 0, x: 0, y: 0 }; // 二元一次方程變數
+    let isAlpha = false; // 新增：Alpha 模式狀態
+    let isSto = false;   // 新增：STO 儲存模式狀態
     
-    // 歷史紀錄陣列與指標
+    let calcState = 'NORMAL'; 
+    let isResultDisplayed = false; 
+    let fmlaVars = { a: 0, b: 0, c: 0, x1: 0, x2: 0 }; 
+    let progVars = { a1: 0, b1: 0, c1: 0, a2: 0, b2: 0, c2: 0, x: 0, y: 0 }; 
+    let fmla3Vars = { a: 0, b: 0, c: 0, area: 0 }; 
+    
+    // 新增：字母變數記憶庫 (Variables Memory)
+    let memoryVars = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0, Y: 0, M: 0 };
+    
     let calcHistory = [];
     let historyIndex = -1;
+
+    // --- 錄製與重播核心狀態 ---
+    let isRecording = false;
+    let isReplaying = false;
+    let recordedActions = []; 
     
     const display = document.getElementById('display');
     const history = document.getElementById('history');
     const indDeg = document.getElementById('ind-deg');
     const indShift = document.getElementById('ind-shift');
+    const indAlpha = document.getElementById('ind-alpha');
+
+    // ================== 錄製與重播系統 ==================
+
+    function toggleRecording() {
+        if (isReplaying) return; 
+        const btn = document.getElementById('record-btn');
+        const replayBtn = document.getElementById('replay-btn');
+        const list = document.getElementById('step-list');
+
+        if (!isRecording) {
+            isRecording = true;
+            recordedActions = [];
+            list.innerHTML = ''; 
+            btn.innerHTML = '⏹️ 停止';
+            btn.classList.add('recording');
+            replayBtn.disabled = true;
+        } else {
+            isRecording = false;
+            btn.innerHTML = '▶ 記錄';
+            btn.classList.remove('recording');
+            replayBtn.disabled = recordedActions.length === 0;
+        }
+    }
+
+    async function startReplay() {
+        if (isRecording || isReplaying || recordedActions.length === 0) return;
+        
+        isReplaying = true;
+        document.getElementById('replay-btn').disabled = true;
+        document.getElementById('record-btn').disabled = true;
+        
+        clearAll(); 
+        
+        const listItems = document.querySelectorAll('#step-list li');
+        
+        for (let i = 0; i < recordedActions.length; i++) {
+            listItems.forEach(li => li.classList.remove('playing'));
+            if (listItems[i]) {
+                listItems[i].classList.add('playing');
+                listItems[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            
+            let target = recordedActions[i].target;
+            if (target) {
+                target.classList.add('simulated-active');
+                target.click(); 
+                setTimeout(() => target.classList.remove('simulated-active'), 2000);
+            }
+            
+            await new Promise(r => setTimeout(r, 3000));
+        }
+        
+        listItems.forEach(li => li.classList.remove('playing'));
+        isReplaying = false;
+        document.getElementById('replay-btn').disabled = false;
+        document.getElementById('record-btn').disabled = false;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const calc = document.getElementById('main-calc');
+        calc.addEventListener('click', (e) => {
+            if (isReplaying && e.isTrusted) {
+                e.stopPropagation();
+                e.preventDefault();
+                return;
+            }
+            
+            let target = e.target.closest('button, .dpad div[onclick]');
+            if (!target) return;
+            
+            if (isRecording && e.isTrusted) {
+                let actionName = target.innerText.trim();
+                
+                if (!actionName) {
+                    if (target.innerHTML.includes('▲')) actionName = '▲ (上)';
+                    else if (target.innerHTML.includes('▼')) actionName = '▼ (下)';
+                }
+                if (actionName.includes('ab/c')) actionName = 'ab/c';
+                else if (actionName.includes('x²')) actionName = 'x²';
+                else if (actionName.includes('(') && actionName.includes('%')) actionName = '( / %';
+                else if (actionName.includes('x⁻¹')) actionName = isShift ? 'x!' : 'x⁻¹'; 
+                else if (actionName === '×') actionName = isShift ? 'nPr' : '×'; 
+                else if (actionName === '÷') actionName = isShift ? 'nCr' : '÷'; 
+                else if (actionName === '.') actionName = isShift ? 'Ran#' : '.'; // 新增：記錄 Ran#
+                
+                recordedActions.push({ target: target, label: actionName });
+                
+                const li = document.createElement('li');
+                li.innerText = `Step ${recordedActions.length}: 按下 [ ${actionName} ]`;
+                const list = document.getElementById('step-list');
+                list.appendChild(li);
+                list.scrollTop = list.scrollHeight; 
+            }
+        }, true);
+    });
+
+    // ================== 計數機核心運算 ==================
 
     function updateDisplay() {
-        // 加入閃爍游標效果
-        let displayText = expr || '0';
-        if (calcState === 'FMLA_A') displayText = 'a? ' + displayText;
-        else if (calcState === 'FMLA_B') displayText = 'b? ' + displayText;
-        else if (calcState === 'FMLA_C') displayText = 'c? ' + displayText;
-        else if (calcState === 'PROG_A1') displayText = 'a1? ' + displayText;
-        else if (calcState === 'PROG_B1') displayText = 'b1? ' + displayText;
-        else if (calcState === 'PROG_C1') displayText = 'c1? ' + displayText;
-        else if (calcState === 'PROG_A2') displayText = 'a2? ' + displayText;
-        else if (calcState === 'PROG_B2') displayText = 'b2? ' + displayText;
-        else if (calcState === 'PROG_C2') displayText = 'c2? ' + displayText;
+        let displayText = expr;
+        
+        if (calcState === 'FMLA_A') displayText = 'a? ' + (expr !== '' ? expr : fmlaVars.a);
+        else if (calcState === 'FMLA_B') displayText = 'b? ' + (expr !== '' ? expr : fmlaVars.b);
+        else if (calcState === 'FMLA_C') displayText = 'c? ' + (expr !== '' ? expr : fmlaVars.c);
+        
+        else if (calcState === 'FMLA3_A') displayText = 'a? ' + (expr !== '' ? expr : fmla3Vars.a);
+        else if (calcState === 'FMLA3_B') displayText = 'b? ' + (expr !== '' ? expr : fmla3Vars.b);
+        else if (calcState === 'FMLA3_C') displayText = 'c? ' + (expr !== '' ? expr : fmla3Vars.c);
+        
+        else if (calcState === 'PROG_A1') displayText = 'a1? ' + (expr !== '' ? expr : progVars.a1);
+        else if (calcState === 'PROG_B1') displayText = 'b1? ' + (expr !== '' ? expr : progVars.b1);
+        else if (calcState === 'PROG_C1') displayText = 'c1? ' + (expr !== '' ? expr : progVars.c1);
+        else if (calcState === 'PROG_A2') displayText = 'a2? ' + (expr !== '' ? expr : progVars.a2);
+        else if (calcState === 'PROG_B2') displayText = 'b2? ' + (expr !== '' ? expr : progVars.b2);
+        else if (calcState === 'PROG_C2') displayText = 'c2? ' + (expr !== '' ? expr : progVars.c2);
+        
+        else displayText = expr || '0'; 
 
         display.innerHTML = displayText + '<span class="cursor">_</span>';
-        indShift.innerText = isShift ? 'S' : '';
         
-        // 確保放大鏡在狀態更新時同步顯示最新數字
-        if (isMagnifying) {
-            updateMagnifier();
-        }
+        // 更新狀態指示燈
+        indShift.innerText = isSto ? 'STO' : (isShift ? 'S' : '');
+        indAlpha.innerText = isAlpha ? 'A' : '';
+        
+        if (isMagnifying) updateMagnifier();
     }
 
     function toggleShift() {
         isShift = !isShift;
+        isAlpha = false;
+        isSto = false;
         updateDisplay();
     }
 
-    function toggleAlpha() {}
+    function toggleAlpha() {
+        isAlpha = !isAlpha;
+        isShift = false;
+        isSto = false;
+        updateDisplay();
+    }
+
+    // 處理 RCL 與 STO (Shift + RCL)
+    function handleRclSto() {
+        if (isShift) {
+            isSto = true;
+            isShift = false;
+            isAlpha = false;
+        } else {
+            // 一般 RCL 點擊時，其實就是開啟一次性的 ALPHA 模式來選取變數
+            isAlpha = true;
+            isShift = false;
+            isSto = false;
+        }
+        updateDisplay();
+    }
+
+    // 處理附帶字母變數的按鍵
+    function handleVarKey(varName, normalAction) {
+        // 1. 如果正在 STO 儲存狀態
+        if (isSto) {
+            try {
+                let val = expr ? evaluateMathString(expr) : ans;
+                memoryVars[varName] = val; // 存入變數
+                isSto = false;
+                calcState = 'NORMAL';
+                history.innerText = `${val} → ${varName}`; // 【更新】顯示 "數值 → 英文字母"
+                expr = val.toString();
+                ans = val;
+                isResultDisplayed = true;
+            } catch (e) {
+                expr = 'Math ERROR';
+            }
+            updateDisplay();
+            return;
+        }
+        
+        // 2. 如果正在 ALPHA 狀態，將字母輸入至算式
+        if (isAlpha) {
+            insertStr(varName);
+            isAlpha = false; // 用完自動關閉 Alpha
+            updateDisplay();
+            return;
+        }
+        
+        // 3. 一般狀態，執行按鈕原本的功能
+        normalAction();
+    }
+
+    function handleMPlus() {
+        try {
+            let val = expr ? evaluateMathString(expr) : ans;
+            memoryVars.M += val;
+            calcState = 'NORMAL';
+            history.innerText = `${val} M+`; // 【更新】顯示 "數值 M+"
+            expr = val.toString();
+            ans = val;
+            isResultDisplayed = true;
+        } catch(e) {
+            expr = 'Math ERROR';
+        }
+        updateDisplay();
+    }
 
     function toggleDegRad() {
         isDeg = !isDeg;
         indDeg.innerText = isDeg ? 'D' : 'R';
     }
 
-    // 處理連續輸入的邏輯
+    // 處理 x⁻¹ 與 x!
+    function handleInvOrFact() {
+        if (isShift) {
+            insertStr('!');
+            isShift = false;
+            updateDisplay();
+        } else {
+            insertStr('⁻¹');
+        }
+    }
+
+    // 新增：處理小數點與隨機數 (Ran#)
+    function handleDotOrRan() {
+        if (isShift) {
+            insertStr('Ran#');
+            isShift = false;
+            updateDisplay();
+        } else {
+            insertStr('.');
+        }
+    }
+
+    // 新增：處理排列 (nPr) 與組合 (nCr)
+    function handlePermComb(type, defaultChar) {
+        if (isShift) {
+            // 使用零寬度空格包裹，讓內部解析器能精準辨識為運算符號而不是英文字母變數
+            insertStr('\u200B' + type + '\u200B'); 
+            isShift = false;
+            updateDisplay();
+        } else {
+            insertStr(defaultChar);
+        }
+    }
+
     function prepareNewInput(str = null) {
         if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
             expr = '';
             history.innerText = '';
         }
 
-        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y') {
+        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'FMLA3_AREA' || calcState === 'PROG_X' || calcState === 'PROG_Y') {
             calcState = 'NORMAL';
         }
 
         if (isResultDisplayed) {
             isResultDisplayed = false;
             history.innerText = '';
-            if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%'].includes(str)) {
+            // 加入 nPr (P) 與 nCr (C) 到接續運算陣列
+            if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%', '!', '\u200BP\u200B', '\u200BC\u200B'].includes(str)) {
                 expr = 'Ans'; 
             } else {
                 expr = ''; 
@@ -617,7 +1033,6 @@
         updateDisplay();
     }
 
-    // 處理百分比與開括號
     function insertOpenParenOrPercent() {
         if (isShift) {
             insertStr('%');
@@ -628,7 +1043,6 @@
         updateDisplay();
     }
 
-    // 小數與分數互相轉換的演算法
     function toFraction(decimal) {
         if (!isFinite(decimal) || isNaN(decimal)) return decimal.toString();
         let sign = decimal < 0 ? -1 : 1;
@@ -682,6 +1096,8 @@
         expr = cmd; 
         history.innerText = ''; 
         isShift = false; 
+        isAlpha = false;
+        isSto = false;
         isResultDisplayed = false;
         updateDisplay();
     }
@@ -712,6 +1128,14 @@
         updateDisplay();
     }
 
+    function startHeronProgram() {
+        calcState = 'FMLA3_A';
+        expr = '';
+        history.innerText = 'Heron\'s Formula';
+        isResultDisplayed = false;
+        updateDisplay();
+    }
+
     function navigateHistory(direction) {
         if (calcHistory.length === 0 || calcState !== 'NORMAL') return;
 
@@ -737,6 +1161,9 @@
         history.innerText = '';
         historyIndex = calcHistory.length; 
         isResultDisplayed = false;
+        isSto = false;
+        isAlpha = false;
+        isShift = false;
         updateDisplay();
     }
 
@@ -746,12 +1173,16 @@
             return;
         }
 
-        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'PROG_X' || calcState === 'PROG_Y' || isResultDisplayed) {
+        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'FMLA3_AREA' || calcState === 'PROG_X' || calcState === 'PROG_Y' || isResultDisplayed) {
             clearAll();
             return;
         }
         
-        if (expr.endsWith('sin⁻¹(') || expr.endsWith('cos⁻¹(') || expr.endsWith('tan⁻¹(')) {
+        if (expr.endsWith('\u200BP\u200B') || expr.endsWith('\u200BC\u200B')) {
+            expr = expr.slice(0, -3); // 精準刪除 nPr/nCr 特殊符號 (包含隱藏字元)
+        } else if (expr.endsWith('Ran#')) {
+            expr = expr.slice(0, -4); // 精準刪除 Ran#
+        } else if (expr.endsWith('sin⁻¹(') || expr.endsWith('cos⁻¹(') || expr.endsWith('tan⁻¹(')) {
             expr = expr.slice(0, -6); 
         } else if (expr.endsWith('FMLA ') || expr.endsWith('Prog ')) {
             expr = expr.slice(0, -5);
@@ -775,18 +1206,120 @@
         log: Math.log10,
         ln: Math.log,
         sqrt: Math.sqrt,
-        pi: Math.PI
+        pi: Math.PI,
+        M: 0,
+        ran: () => Math.floor(Math.random() * 1000) / 1000, // 隨機生成 0.000 ~ 0.999
+        fact: (n) => {
+            if (n < 0 || !Number.isInteger(n)) throw new Error("Math ERROR");
+            if (n === 0 || n === 1) return 1;
+            let res = 1;
+            for (let i = 2; i <= n; i++) res *= i;
+            return res;
+        },
+        nPr: (n, r) => {
+            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
+            let res = 1;
+            for (let i = n; i > n - r; i--) res *= i;
+            return res;
+        },
+        nCr: (n, r) => {
+            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
+            let res = 1;
+            for (let i = 1; i <= r; i++) res = res * (n - i + 1) / i;
+            return Math.round(res);
+        }
     };
 
     function evaluateMathString(inputExpr) {
         let evalStr = inputExpr;
+
+        // 載入當前變數庫的數值
+        mathLib.A = memoryVars.A;
+        mathLib.B = memoryVars.B;
+        mathLib.C = memoryVars.C;
+        mathLib.D = memoryVars.D;
+        mathLib.E = memoryVars.E;
+        mathLib.F = memoryVars.F;
+        mathLib.X = memoryVars.X;
+        mathLib.Y = memoryVars.Y;
+        mathLib.M = memoryVars.M;
 
         evalStr = evalStr.replace(/×/g, '*');
         evalStr = evalStr.replace(/÷/g, '/');
         evalStr = evalStr.replace(/Ans/g, `(${ans})`);
         evalStr = evalStr.replace(/π/g, 'pi');
         evalStr = evalStr.replace(/⌟/g, '/'); 
+        evalStr = evalStr.replace(/M\+/g, 'M'); 
+        evalStr = evalStr.replace(/Ran#/g, 'ran()'); // 解析 Ran# 為內置隨機函數
         
+        // --- 內部函數：向左/右提取運算元，用於 !, nPr, nCr 語法樹解析 ---
+        function extractOperandLeft(str, idx) {
+            let start = idx - 1;
+            let parens = 0;
+            if (str[start] === ')') {
+                parens = 1;
+                start--;
+                while (start >= 0 && parens > 0) {
+                    if (str[start] === ')') parens++;
+                    else if (str[start] === '(') parens--;
+                    start--;
+                }
+                start++;
+                let funcMatch = str.substring(0, start).match(/[a-zA-Z_]+$/);
+                if (funcMatch) start -= funcMatch[0].length;
+                start--; 
+            } else if (/[A-Z!M]/.test(str[start])) { 
+                start--; 
+            } else {
+                while (start >= 0 && /[\d\.]/.test(str[start])) start--;
+            }
+            return { expr: str.substring(start + 1, idx), newStart: start + 1 };
+        }
+
+        function extractOperandRight(str, idx) {
+            let end = idx;
+            let parens = 0;
+            let funcMatch = str.substring(end).match(/^[a-zA-Z_]+/);
+            if (funcMatch) end += funcMatch[0].length;
+
+            if (str[end] === '(') {
+                parens = 1;
+                end++;
+                while (end < str.length && parens > 0) {
+                    if (str[end] === '(') parens++;
+                    else if (str[end] === ')') parens--;
+                    end++;
+                }
+            } else if (/[A-Z]/.test(str[end])) { 
+                end++;
+            } else {
+                if (str[end] === '-') end++; // 容許負號
+                while (end < str.length && /[\d\.]/.test(str[end])) end++;
+            }
+            return { expr: str.substring(idx, end), newEnd: end };
+        }
+
+        // 處理階乘 ! (向左溯源尋找運算元)
+        while (evalStr.indexOf('!') !== -1) {
+            let idx = evalStr.indexOf('!');
+            let left = extractOperandLeft(evalStr, idx);
+            evalStr = evalStr.substring(0, left.newStart) + `fact(${left.expr})` + evalStr.substring(idx + 1);
+        }
+
+        // 處理排列組合 nPr (P) 與 nCr (C)
+        while (evalStr.indexOf('\u200BP\u200B') !== -1) {
+            let idx = evalStr.indexOf('\u200BP\u200B');
+            let left = extractOperandLeft(evalStr, idx);
+            let right = extractOperandRight(evalStr, idx + 3); // \u200BP\u200B 長度為 3
+            evalStr = evalStr.substring(0, left.newStart) + `nPr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
+        }
+        while (evalStr.indexOf('\u200BC\u200B') !== -1) {
+            let idx = evalStr.indexOf('\u200BC\u200B');
+            let left = extractOperandLeft(evalStr, idx);
+            let right = extractOperandRight(evalStr, idx + 3);
+            evalStr = evalStr.substring(0, left.newStart) + `nCr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
+        }
+
         evalStr = evalStr.replace(/%/g, '/100');
         
         evalStr = evalStr.replace(/sin⁻¹/g, 'asin');
@@ -802,8 +1335,9 @@
         evalStr = evalStr.replace(/E\((-?\d+)\)/g, '*10**$1');
         evalStr = evalStr.replace(/E(-?\d+)/g, '*10**$1');
 
-        evalStr = evalStr.replace(/(\d|\)|pi|%)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|pi)/g, '$1*');
-        evalStr = evalStr.replace(/(\)|pi|%)(?=\d)/g, '$1*');
+        // 隱式乘法更新：支援 fact()、nPr()、nCr()、ran() 前的隱式乘法
+        evalStr = evalStr.replace(/(\d|\)|pi|%|A|B|C|D|E|F|X|Y|M)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|fact|nPr|nCr|ran|pi|A|B|C|D|E|F|X|Y|M)/g, '$1*');
+        evalStr = evalStr.replace(/(\)|pi|%|M)(?=\d)/g, '$1*');
 
         let openBrackets = (evalStr.match(/\(/g) || []).length;
         let closeBrackets = (evalStr.match(/\)/g) || []).length;
@@ -812,7 +1346,7 @@
         }
 
         let result = new Function('mathLib', `
-            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, pi } = mathLib;
+            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, fact, nPr, nCr, ran, pi, A, B, C, D, E, F, X, Y, M } = mathLib;
             return ${evalStr};
         `)(mathLib);
 
@@ -825,7 +1359,17 @@
 
     function handleProgExe() {
         try {
-            let val = expr ? evaluateMathString(expr) : 0;
+            let val;
+            if (expr !== '') {
+                val = evaluateMathString(expr);
+            } else {
+                if (calcState === 'PROG_A1') val = progVars.a1;
+                else if (calcState === 'PROG_B1') val = progVars.b1;
+                else if (calcState === 'PROG_C1') val = progVars.c1;
+                else if (calcState === 'PROG_A2') val = progVars.a2;
+                else if (calcState === 'PROG_B2') val = progVars.b2;
+                else if (calcState === 'PROG_C2') val = progVars.c2;
+            }
             
             if (calcState === 'PROG_A1') {
                 progVars.a1 = val; calcState = 'PROG_B1'; expr = ''; history.innerText = `a1 = ${val}`;
@@ -876,7 +1420,14 @@
 
     function handleFMLAExe() {
         try {
-            let val = expr ? evaluateMathString(expr) : 0;
+            let val;
+            if (expr !== '') {
+                val = evaluateMathString(expr);
+            } else {
+                if (calcState === 'FMLA_A') val = fmlaVars.a;
+                else if (calcState === 'FMLA_B') val = fmlaVars.b;
+                else if (calcState === 'FMLA_C') val = fmlaVars.c;
+            }
             
             if (calcState === 'FMLA_A') {
                 fmlaVars.a = val; calcState = 'FMLA_B'; expr = ''; history.innerText = `a = ${val}`;
@@ -893,8 +1444,8 @@
                 } else if (delta < 0) {
                     throw new Error("Math ERROR"); 
                 } else {
-                    fmlaVars.x1 = (-fmlaVars.b + Math.sqrt(delta)) / (2 * fmlaVars.a);
-                    fmlaVars.x2 = (-fmlaVars.b - Math.sqrt(delta)) / (2 * fmlaVars.a);
+                    fmlaVars.x1 = (fmlaVars.b - Math.sqrt(delta)) / (2 * fmlaVars.a);
+                    fmlaVars.x2 = (fmlaVars.b + Math.sqrt(delta)) / (2 * fmlaVars.a);
                 }
                 
                 fmlaVars.x1 = parseFloat(fmlaVars.x1.toPrecision(12));
@@ -925,13 +1476,63 @@
         }
     }
 
+    function handleFMLA3Exe() {
+        try {
+            let val;
+            if (expr !== '') val = evaluateMathString(expr);
+            else {
+                if (calcState === 'FMLA3_A') val = fmla3Vars.a;
+                else if (calcState === 'FMLA3_B') val = fmla3Vars.b;
+                else if (calcState === 'FMLA3_C') val = fmla3Vars.c;
+            }
+
+            if (calcState === 'FMLA3_A') {
+                fmla3Vars.a = val; calcState = 'FMLA3_B'; expr = ''; history.innerText = `a = ${val}`;
+            } else if (calcState === 'FMLA3_B') {
+                fmla3Vars.b = val; calcState = 'FMLA3_C'; expr = ''; history.innerText = `b = ${val}`;
+            } else if (calcState === 'FMLA3_C') {
+                fmla3Vars.c = val;
+                
+                let a = fmla3Vars.a, b = fmla3Vars.b, c = fmla3Vars.c;
+                if (a + b <= c || a + c <= b || b + c <= a || a <= 0 || b <= 0 || c <= 0) {
+                    throw new Error("Math ERROR");
+                }
+                
+                let s = (a + b + c) / 2;
+                let areaSq = s * (s - a) * (s - b) * (s - c);
+                if (areaSq < 0) throw new Error("Math ERROR");
+                
+                fmla3Vars.area = Math.sqrt(areaSq);
+                fmla3Vars.area = parseFloat(fmla3Vars.area.toPrecision(12));
+
+                calcState = 'FMLA3_AREA';
+                history.innerText = 'Area =';
+                expr = fmla3Vars.area.toString();
+                ans = fmla3Vars.area;
+                isResultDisplayed = true;
+            } else if (calcState === 'FMLA3_AREA') {
+                calcState = 'NORMAL';
+                history.innerText = '';
+                expr = ans.toString();
+                isResultDisplayed = true;
+            }
+            updateDisplay();
+        } catch (error) {
+            calcState = 'NORMAL';
+            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
+            updateDisplay();
+        }
+    }
+
     function calculate() {
+        if (calcState.startsWith('FMLA3_')) { handleFMLA3Exe(); return; }
         if (calcState.startsWith('FMLA_')) { handleFMLAExe(); return; }
         if (calcState.startsWith('PROG_')) { handleProgExe(); return; }
         if (!expr) return;
 
         let trimmedExpr = expr.trim();
         if (trimmedExpr === 'FMLA 01' || trimmedExpr === 'FMLA 1') { startQuadraticProgram(); return; }
+        if (trimmedExpr === 'FMLA 03' || trimmedExpr === 'FMLA 3') { startHeronProgram(); return; }
         if (trimmedExpr === 'Prog 01' || trimmedExpr === 'Prog 1') { startLinearProgram(); return; }
 
         history.innerText = expr;
@@ -967,7 +1568,7 @@
             updateMagnifier(); 
         } else {
             lens.style.display = 'none';
-            lens.innerHTML = ''; // 清除拷貝
+            lens.innerHTML = ''; 
             btn.classList.remove('active');
         }
     }
@@ -984,16 +1585,15 @@
         const calc = document.getElementById('main-calc');
         const rect = calc.getBoundingClientRect();
 
-        // 初次生成時，將計數機的 DOM 結構複製進放大鏡裡
         if (!lens.hasChildNodes()) {
             const clone = calc.cloneNode(true);
             clone.removeAttribute('id');
+            clone.style.width = calc.offsetWidth + 'px';
+            clone.style.height = calc.offsetHeight + 'px';
             lens.appendChild(clone);
         }
 
         const calcClone = lens.firstChild;
-
-        // 同步兩個螢幕上的動態數值 (算式與歷史紀錄)
         const origDisplay = document.getElementById('display');
         const cloneDisplay = calcClone.querySelector('.screen-bottom');
         if (cloneDisplay && origDisplay) cloneDisplay.innerHTML = origDisplay.innerHTML;
@@ -1006,15 +1606,13 @@
         const cloneInd = calcClone.querySelector('.indicators');
         if (cloneInd && origInd) cloneInd.innerHTML = origInd.innerHTML;
 
-        // 設定放大鏡自身的位置 (跟隨滑鼠中心)
         const lensSize = 160; 
         lens.style.left = (e.clientX - lensSize / 2) + 'px';
         lens.style.top = (e.clientY - lensSize / 2) + 'px';
 
-        // 計算並偏移放大鏡裡面的計數機，以達成放大特定位置的錯覺
         const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
-        const zoom = 2; // 放大的倍數
+        const zoom = 2; 
 
         calcClone.style.position = 'absolute';
         calcClone.style.transform = `scale(${zoom})`;
@@ -1022,7 +1620,7 @@
         calcClone.style.left = (lensSize / 2 - relX * zoom) + 'px';
         calcClone.style.top = (lensSize / 2 - relY * zoom) + 'px';
         calcClone.style.margin = '0';
-        calcClone.style.boxShadow = 'none'; // 移除拷貝體的陰影避免視覺穿幫
+        calcClone.style.boxShadow = 'none'; 
     }
 
 </script>
