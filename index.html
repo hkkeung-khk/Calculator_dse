@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Casio fx-50FH II 科學計數機</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<!-- 引入 math.js 以支援 CMPLX 模式的複數運算 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js"></script>
 <style>
     :root {
         --silver-bg: linear-gradient(170deg, #fdfdfd 0%, #dcdedd 40%, #a4a5a7 100%);
@@ -18,7 +20,12 @@
         --text-alpha: #cc3333; 
     }
 
-    * { box-sizing: border-box; user-select: none; }
+    * { 
+        box-sizing: border-box; 
+        user-select: none; 
+        -webkit-tap-highlight-color: transparent;
+        touch-action: manipulation;
+    }
 
     body {
         margin: 0;
@@ -33,7 +40,6 @@
         padding: 70px 20px 20px 20px; 
     }
 
-    /* --- 頂部控制按鈕 --- */
     .top-controls {
         position: fixed;
         top: 20px;
@@ -74,7 +80,6 @@
     .mag-btn:hover { background-color: #e0e0e0; transform: scale(1.05); }
     .mag-btn.active { background-color: #4CAF50; border-color: #388E3C; color: white; box-shadow: inset 0 3px 6px rgba(0,0,0,0.2); }
 
-    /* --- 記錄面板樣式 --- */
     .record-panel-wrapper {
         display: none; 
         width: 100%;
@@ -166,7 +171,6 @@
         transform: scale(1.02);
     }
 
-    /* --- 計數機主體樣式 --- */
     .calculator {
         position: relative;
         width: 95vw; 
@@ -254,7 +258,7 @@
 
     .indicators {
         display: flex;
-        gap: 15px;
+        gap: 12px;
         font-family: 'Share Tech Mono', monospace;
         font-size: 12px;
         color: #333;
@@ -268,29 +272,40 @@
     }
 
     .screen-top {
-        font-size: clamp(14px, 4.5vw, 18px); /* 稍微放大上一條紀錄的字體 */
+        font-size: clamp(14px, 4.5vw, 18px); 
         color: #222;
-        min-height: 22px; /* 稍微增加高度以適應放大的字體 */
+        min-height: 22px; 
         letter-spacing: 1px;
         overflow: hidden;
         white-space: nowrap;
-        text-align: left; /* 將上方的歷史紀錄改為靠左對齊 */
+        text-align: left; 
     }
 
     .screen-bottom {
         font-size: clamp(28px, 9vw, 38px);
         color: #000;
         line-height: 1;
-        overflow: hidden;
+        overflow-x: hidden; /* 隱藏滾動條但允許 JS 控制捲動 */
+        overflow-y: hidden;
         white-space: nowrap;
+        scroll-behavior: smooth;
+        padding-right: 5px; 
+    }
+
+    /* === 專用排版 === */
+    .mode-menu-view .screen-top { display: none !important; }
+    .mode-menu-view .screen-bottom {
+        font-size: clamp(15px, 4.5vw, 20px) !important;
+        text-align: center !important;
+        padding-top: 8px !important;
+        padding-bottom: 5px !important;
+        white-space: pre !important; 
     }
 
     .keypad {
         padding: 0 6px; 
         margin-top: 0;
     }
-
-    /* === 分區排版系統 === */
 
     .top-keys {
         display: flex;
@@ -361,7 +376,6 @@
         align-items: center;
     }
 
-    /* 標籤排版系統 */
     .labels {
         position: absolute;
         top: -14px; 
@@ -381,6 +395,7 @@
     .lbl-shift { color: var(--text-shift); font-weight: 900; text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); }
     .lbl-alpha { color: var(--text-alpha); font-weight: bold; }
     .lbl-green { color: #007700; font-weight: bold; }
+    .lbl-blue  { color: #0066cc; font-weight: bold; text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.8); }
 
     button {
         width: 100%;
@@ -475,7 +490,6 @@
 </head>
 <body>
 
-<!-- 頂部控制與放大鏡 -->
 <div class="top-controls">
     <button class="panel-toggle-btn" id="toggle-panel-btn" onclick="toggleRecordPanel()">📜 展開記錄</button>
     <button class="mag-btn" id="mag-btn" onclick="toggleMagnifier()" title="開啟/關閉放大鏡">🔍</button>
@@ -483,7 +497,6 @@
 
 <div class="magnifier-lens" id="lens"></div>
 
-<!-- 記錄面板 (可折疊) -->
 <div class="record-panel-wrapper" id="record-wrapper">
     <div class="record-panel">
         <h3>📝 操作記錄</h3>
@@ -495,7 +508,6 @@
     </div>
 </div>
 
-<!-- 計數機主體 -->
 <div class="calculator" id="main-calc">
     <div class="faceplate">
         <div class="top-brand">
@@ -521,6 +533,9 @@
                 <span id="ind-shift"></span>
                 <span id="ind-alpha"></span>
                 <span id="ind-math">M</span>
+                <span id="ind-cmplx"></span>
+                <span id="ind-base"></span>
+                <span id="ind-sd"></span>
                 <span id="ind-deg">D</span>
             </div>
             <div class="screen-content">
@@ -530,8 +545,6 @@
         </div>
 
         <div class="keypad">
-            
-            <!-- 第 1 區: 頂部控制按鍵 -->
             <div class="top-keys">
                 <div class="top-side-keys">
                     <div class="key-wrapper">
@@ -542,7 +555,7 @@
                     </div>
                     <div class="key-wrapper">
                         <div class="labels"><span class="lbl-shift lbl-center">EXIT</span></div>
-                        <button class="btn-prog" onclick="insertCommand('Prog ')">Prog</button>
+                        <button class="btn-prog" onclick="handleProgBtn()">Prog</button>
                     </div>
                     <div class="key-wrapper">
                         <button class="btn-prog" onclick="insertCommand('FMLA ')">FMLA</button>
@@ -551,17 +564,17 @@
 
                 <div class="dpad-container">
                     <div class="dpad">
-                        <div style="position:absolute; top:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(-1)">▲</div>
-                        <div style="position:absolute; bottom:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory(1)">▼</div>
-                        <div style="position:absolute; left:6px; height:20px; display:flex; align-items:center; cursor:pointer;">◀</div>
-                        <div style="position:absolute; right:6px; height:20px; display:flex; align-items:center; cursor:pointer;">▶</div>
+                        <div style="position:absolute; top:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory('UP')">▲</div>
+                        <div style="position:absolute; bottom:2px; width:26px; height:14px; display:flex; justify-content:center; align-items:center; cursor:pointer;" onclick="navigateHistory('DOWN')">▼</div>
+                        <div style="position:absolute; left:6px; height:20px; display:flex; align-items:center; cursor:pointer;" onclick="navigateHistory('LEFT')">◀</div>
+                        <div style="position:absolute; right:6px; height:20px; display:flex; align-items:center; cursor:pointer;" onclick="navigateHistory('RIGHT')">▶</div>
                     </div>
                 </div>
 
                 <div class="top-side-keys">
                     <div class="key-wrapper">
                         <div class="labels"><span class="lbl-shift lbl-center">SETUP</span></div>
-                        <button class="btn-top" onclick="toggleDegRad()">MODE</button>
+                        <button class="btn-top" onclick="handleModeSetup()">MODE</button>
                     </div>
                     <div class="key-wrapper">
                         <button class="btn-top" onclick="clearAll()">ON</button>
@@ -572,14 +585,12 @@
                     </div>
                     <div class="key-wrapper">
                         <div class="labels"><span class="lbl-shift lbl-center">³√</span></div>
-                        <button class="btn-top" onclick="insertStr('³')">x³</button>
+                        <button class="btn-top" onclick="handleCubeOrCubeRoot()">x³</button>
                     </div>
                 </div>
             </div>
 
-            <!-- 第 2 區: 科學功能按鍵 -->
             <div class="func-keys">
-                <!-- R1 -->
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-center">d/c</span></div>
                     <button class="btn-top" onclick="handleFraction()">ab/c</button>
@@ -589,22 +600,21 @@
                 </div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-green lbl-center">DEC</span></div>
-                    <button class="btn-top" onclick="insertStr('²')">x²</button>
+                    <button class="btn-top" onclick="handleSquareOrDec()">x²</button>
                 </div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-left">x√</span><span class="lbl-green lbl-right">HEX</span></div>
-                    <button class="btn-top" onclick="insertStr('^(')">^</button>
+                    <button class="btn-top" onclick="handlePowerOrRootOrHex()">^</button>
                 </div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-left">10^x</span><span class="lbl-green lbl-right">BIN</span></div>
-                    <button class="btn-top" onclick="insertStr('log(')">log</button>
+                    <button class="btn-top" onclick="handleLogOr10PowOrBin()">log</button>
                 </div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-left">e^x</span><span class="lbl-green lbl-right">OCT</span></div>
-                    <button class="btn-top" onclick="insertStr('ln(')">ln</button>
+                    <button class="btn-top" onclick="handleLnOrEPowOrOct()">ln</button>
                 </div>
 
-                <!-- R2 (加入 Variables A-F 對應) -->
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-left">∠</span><span class="lbl-alpha lbl-right">A</span></div>
                     <button class="btn-top" onclick="handleVarKey('A', () => insertStr('-'))">(-)</button>
@@ -630,14 +640,13 @@
                     <button class="btn-top" onclick="handleVarKey('F', () => insertTrig('tan'))">tan</button>
                 </div>
 
-                <!-- R3 (加入 Variables X, Y, M 對應與 RCL/STO) -->
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-center">STO</span></div>
                     <button class="btn-top" onclick="handleRclSto()">RCL</button>
                 </div>
                 <div class="key-wrapper">
-                    <div class="labels"><span class="lbl-shift lbl-center">←</span></div>
-                    <button class="btn-top" onclick="insertStr('ENG')">ENG</button>
+                    <div class="labels"><span class="lbl-shift lbl-left">←</span><span class="lbl-blue lbl-right">i</span></div>
+                    <button class="btn-top" onclick="handleEngOrI()">ENG</button>
                 </div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-left">%</span><span class="lbl-alpha lbl-right">X</span></div>
@@ -648,28 +657,25 @@
                     <button class="btn-top" onclick="handleVarKey('Y', () => insertStr(')'))">)</button>
                 </div>
                 <div class="key-wrapper">
-                    <div class="labels"><span class="lbl-alpha lbl-right">M-</span></div>
-                    <button class="btn-top" onclick="insertStr(',')">,</button>
+                    <div class="labels"><span class="lbl-shift lbl-left">;</span><span class="lbl-alpha lbl-right">M-</span></div>
+                    <button class="btn-top" onclick="handleCommaOrSemicolon()">,</button>
                 </div>
                 <div class="key-wrapper">
-                    <div class="labels"><span class="lbl-alpha lbl-right">M</span></div>
+                    <div class="labels"><span class="lbl-blue lbl-left">DT</span><span class="lbl-alpha lbl-right">M</span></div>
                     <button class="btn-top" onclick="handleVarKey('M', () => handleMPlus())">M+</button>
                 </div>
             </div>
 
-            <!-- 第 3 區: 底部數字區 -->
             <div class="num-keys">
-                <!-- Row 1 -->
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('7')">7</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('8')">8</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('9')">9</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('7')">7</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('8')">8</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('9')">9</button></div>
                 <div class="key-wrapper"><button class="btn-del" onclick="deleteLast()">DEL</button></div>
                 <div class="key-wrapper"><button class="btn-del" onclick="clearAll()">AC</button></div>
 
-                <!-- Row 2 -->
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('4')">4</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('5')">5</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('6')">6</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('4')">4</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('5')">5</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('6')">6</button></div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-center">nPr</span></div>
                     <button class="btn-func" onclick="handlePermComb('P', '×')">×</button>
@@ -679,15 +685,19 @@
                     <button class="btn-func" onclick="handlePermComb('C', '÷')">÷</button>
                 </div>
 
-                <!-- Row 3 -->
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('1')">1</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('2')">2</button></div>
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('3')">3</button></div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">S-SUM</span></div>
+                    <button class="btn-num" onclick="handleNum('1')">1</button>
+                </div>
+                <div class="key-wrapper">
+                    <div class="labels"><span class="lbl-shift lbl-center">S-VAR</span></div>
+                    <button class="btn-num" onclick="handleNum('2')">2</button>
+                </div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('3')">3</button></div>
                 <div class="key-wrapper"><button class="btn-func" onclick="insertStr('+')">+</button></div>
                 <div class="key-wrapper"><button class="btn-func" onclick="insertStr('-')">-</button></div>
 
-                <!-- Row 4 -->
-                <div class="key-wrapper"><button class="btn-num" onclick="insertStr('0')">0</button></div>
+                <div class="key-wrapper"><button class="btn-num" onclick="handleNum('0')">0</button></div>
                 <div class="key-wrapper">
                     <div class="labels"><span class="lbl-shift lbl-center">Ran#</span></div>
                     <button class="btn-num" onclick="handleDotOrRan()">.</button>
@@ -704,7 +714,102 @@
 </div>
 
 <script>
-    // --- 介面控制：折疊/展開記錄面板 ---
+    // --- 全域狀態變數 ---
+    let expr = '';      
+    let ans = 0;        
+    let isDeg = true;   
+    let isShift = false;
+    let isAlpha = false; 
+    let isSto = false;   
+    
+    let sdMode = false;
+    let cmplxMode = false; 
+    let baseMode = false;
+    let currentBase = 'DEC'; 
+    let sdData = [];
+
+    // 內建強大的 Program 1 預載聯立方程式腳本
+    let userPrograms = { 
+        1: '?→A:?→B:?→C:?→D:?→E:?→F:(CE-BF)÷(AE-BD)→X◢(AF-CD)÷(AE-BD)→Y', 
+        2: '', 3: '', 4: '' 
+    };
+    let editProgId = null;
+    let progSteps = [];
+    let progStepIdx = 0;
+    let progPromptVar = '';
+
+    let calcState = 'NORMAL'; 
+    let isResultDisplayed = false; 
+    let memoryVars = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0, Y: 0, M: 0 };
+    
+    let calcHistory = [];
+    let historyIndex = -1;
+
+    let currentFmla = null;
+    let fmlaInputIdx = 0;
+    let fmlaOutputs = [];
+    let fmlaOutputIdx = 0;
+
+    let isRecording = false;
+    let isReplaying = false;
+    let recordedActions = [];
+    let isMagnifying = false;
+    let lastMouseEvent = null;
+
+    // --- 初始化及事件監聽 ---
+    document.addEventListener('DOMContentLoaded', () => {
+        const calc = document.getElementById('main-calc');
+        calc.addEventListener('click', (e) => {
+            if (isReplaying && e.isTrusted) { e.stopPropagation(); e.preventDefault(); return; }
+            let target = e.target.closest('button, .dpad div[onclick]');
+            if (!target) return;
+            
+            if (isRecording && e.isTrusted) {
+                let actionName = target.innerText.trim();
+                if (!actionName) {
+                    if (target.innerHTML.includes('▲')) actionName = '▲ (上)';
+                    else if (target.innerHTML.includes('▼')) actionName = '▼ (下)';
+                    else if (target.innerHTML.includes('◀')) actionName = '◀ (左)';
+                    else if (target.innerHTML.includes('▶')) actionName = '▶ (右)';
+                }
+                
+                if (actionName.includes('ab/c')) actionName = 'ab/c';
+                else if (actionName.includes('x²')) actionName = baseMode ? 'DEC' : 'x²';
+                else if (actionName.includes('(') && actionName.includes('%')) actionName = '( / %';
+                else if (actionName.includes('x⁻¹')) actionName = isShift ? 'x!' : 'x⁻¹'; 
+                else if (actionName === '×') actionName = isShift ? 'nPr' : '×'; 
+                else if (actionName === '÷') actionName = isShift ? 'nCr' : '÷'; 
+                else if (actionName === '.') actionName = isShift ? 'Ran#' : '.'; 
+                else if (actionName === ',') actionName = isShift ? ';' : ','; 
+                else if (actionName === '^') actionName = baseMode ? 'HEX' : (isShift ? 'x√' : '^');
+                else if (actionName === 'log') actionName = baseMode ? 'BIN' : (isShift ? '10^x' : 'log');
+                else if (actionName === 'ln') actionName = baseMode ? 'OCT' : (isShift ? 'e^x' : 'ln');
+                else if (actionName === 'x³') actionName = isShift ? '³√' : 'x³';
+                else if (actionName === 'MODE') actionName = isShift ? 'SETUP' : 'MODE';
+                else if (actionName === 'M+') actionName = sdMode ? 'DT' : 'M+';
+                else if (actionName === '1') actionName = (isShift && sdMode) ? 'S-SUM' : '1';
+                else if (actionName === '2') actionName = (isShift && sdMode) ? 'S-VAR' : '2';
+                else if (actionName === 'ENG') {
+                    if (cmplxMode) actionName = 'i';
+                    else if (isShift) actionName = '←';
+                    else actionName = 'ENG';
+                }
+                else if (actionName === 'Prog') actionName = isShift ? 'EXIT' : 'Prog';
+                
+                recordedActions.push({ target: target, label: actionName });
+                const li = document.createElement('li');
+                li.innerText = `Step ${recordedActions.length}: 按下 [ ${actionName} ]`;
+                const list = document.getElementById('step-list');
+                list.appendChild(li); list.scrollTop = list.scrollHeight; 
+            }
+        }, true);
+    });
+
+    document.addEventListener('mousemove', (e) => {
+        lastMouseEvent = e;
+        if (isMagnifying) updateMagnifier();
+    });
+
     function toggleRecordPanel() {
         const wrapper = document.getElementById('record-wrapper');
         const btn = document.getElementById('toggle-panel-btn');
@@ -716,39 +821,6 @@
             btn.innerText = '📜 隱藏記錄';
         }
     }
-
-    // --- 計數機核心狀態 ---
-    let expr = '';      
-    let ans = 0;        
-    let isDeg = true;   
-    let isShift = false;
-    let isAlpha = false; // 新增：Alpha 模式狀態
-    let isSto = false;   // 新增：STO 儲存模式狀態
-    
-    let calcState = 'NORMAL'; 
-    let isResultDisplayed = false; 
-    let fmlaVars = { a: 0, b: 0, c: 0, x1: 0, x2: 0 }; 
-    let progVars = { a1: 0, b1: 0, c1: 0, a2: 0, b2: 0, c2: 0, x: 0, y: 0 }; 
-    let fmla3Vars = { a: 0, b: 0, c: 0, area: 0 }; 
-    
-    // 新增：字母變數記憶庫 (Variables Memory)
-    let memoryVars = { A: 0, B: 0, C: 0, D: 0, E: 0, F: 0, X: 0, Y: 0, M: 0 };
-    
-    let calcHistory = [];
-    let historyIndex = -1;
-
-    // --- 錄製與重播核心狀態 ---
-    let isRecording = false;
-    let isReplaying = false;
-    let recordedActions = []; 
-    
-    const display = document.getElementById('display');
-    const history = document.getElementById('history');
-    const indDeg = document.getElementById('ind-deg');
-    const indShift = document.getElementById('ind-shift');
-    const indAlpha = document.getElementById('ind-alpha');
-
-    // ================== 錄製與重播系統 ==================
 
     function toggleRecording() {
         if (isReplaying) return; 
@@ -781,21 +853,18 @@
         clearAll(); 
         
         const listItems = document.querySelectorAll('#step-list li');
-        
         for (let i = 0; i < recordedActions.length; i++) {
             listItems.forEach(li => li.classList.remove('playing'));
             if (listItems[i]) {
                 listItems[i].classList.add('playing');
                 listItems[i].scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
-            
             let target = recordedActions[i].target;
             if (target) {
                 target.classList.add('simulated-active');
                 target.click(); 
                 setTimeout(() => target.classList.remove('simulated-active'), 2000);
             }
-            
             await new Promise(r => setTimeout(r, 3000));
         }
         
@@ -805,778 +874,16 @@
         document.getElementById('record-btn').disabled = false;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const calc = document.getElementById('main-calc');
-        calc.addEventListener('click', (e) => {
-            if (isReplaying && e.isTrusted) {
-                e.stopPropagation();
-                e.preventDefault();
-                return;
-            }
-            
-            let target = e.target.closest('button, .dpad div[onclick]');
-            if (!target) return;
-            
-            if (isRecording && e.isTrusted) {
-                let actionName = target.innerText.trim();
-                
-                if (!actionName) {
-                    if (target.innerHTML.includes('▲')) actionName = '▲ (上)';
-                    else if (target.innerHTML.includes('▼')) actionName = '▼ (下)';
-                }
-                if (actionName.includes('ab/c')) actionName = 'ab/c';
-                else if (actionName.includes('x²')) actionName = 'x²';
-                else if (actionName.includes('(') && actionName.includes('%')) actionName = '( / %';
-                else if (actionName.includes('x⁻¹')) actionName = isShift ? 'x!' : 'x⁻¹'; 
-                else if (actionName === '×') actionName = isShift ? 'nPr' : '×'; 
-                else if (actionName === '÷') actionName = isShift ? 'nCr' : '÷'; 
-                else if (actionName === '.') actionName = isShift ? 'Ran#' : '.'; // 新增：記錄 Ran#
-                
-                recordedActions.push({ target: target, label: actionName });
-                
-                const li = document.createElement('li');
-                li.innerText = `Step ${recordedActions.length}: 按下 [ ${actionName} ]`;
-                const list = document.getElementById('step-list');
-                list.appendChild(li);
-                list.scrollTop = list.scrollHeight; 
-            }
-        }, true);
-    });
-
-    // ================== 計數機核心運算 ==================
-
-    function updateDisplay() {
-        let displayText = expr;
-        
-        if (calcState === 'FMLA_A') displayText = 'a? ' + (expr !== '' ? expr : fmlaVars.a);
-        else if (calcState === 'FMLA_B') displayText = 'b? ' + (expr !== '' ? expr : fmlaVars.b);
-        else if (calcState === 'FMLA_C') displayText = 'c? ' + (expr !== '' ? expr : fmlaVars.c);
-        
-        else if (calcState === 'FMLA3_A') displayText = 'a? ' + (expr !== '' ? expr : fmla3Vars.a);
-        else if (calcState === 'FMLA3_B') displayText = 'b? ' + (expr !== '' ? expr : fmla3Vars.b);
-        else if (calcState === 'FMLA3_C') displayText = 'c? ' + (expr !== '' ? expr : fmla3Vars.c);
-        
-        else if (calcState === 'PROG_A1') displayText = 'a1? ' + (expr !== '' ? expr : progVars.a1);
-        else if (calcState === 'PROG_B1') displayText = 'b1? ' + (expr !== '' ? expr : progVars.b1);
-        else if (calcState === 'PROG_C1') displayText = 'c1? ' + (expr !== '' ? expr : progVars.c1);
-        else if (calcState === 'PROG_A2') displayText = 'a2? ' + (expr !== '' ? expr : progVars.a2);
-        else if (calcState === 'PROG_B2') displayText = 'b2? ' + (expr !== '' ? expr : progVars.b2);
-        else if (calcState === 'PROG_C2') displayText = 'c2? ' + (expr !== '' ? expr : progVars.c2);
-        
-        else displayText = expr || '0'; 
-
-        display.innerHTML = displayText + '<span class="cursor">_</span>';
-        
-        // 更新狀態指示燈
-        indShift.innerText = isSto ? 'STO' : (isShift ? 'S' : '');
-        indAlpha.innerText = isAlpha ? 'A' : '';
-        
-        if (isMagnifying) updateMagnifier();
-    }
-
-    function toggleShift() {
-        isShift = !isShift;
-        isAlpha = false;
-        isSto = false;
-        updateDisplay();
-    }
-
-    function toggleAlpha() {
-        isAlpha = !isAlpha;
-        isShift = false;
-        isSto = false;
-        updateDisplay();
-    }
-
-    // 處理 RCL 與 STO (Shift + RCL)
-    function handleRclSto() {
-        if (isShift) {
-            isSto = true;
-            isShift = false;
-            isAlpha = false;
-        } else {
-            // 一般 RCL 點擊時，其實就是開啟一次性的 ALPHA 模式來選取變數
-            isAlpha = true;
-            isShift = false;
-            isSto = false;
-        }
-        updateDisplay();
-    }
-
-    // 處理附帶字母變數的按鍵
-    function handleVarKey(varName, normalAction) {
-        // 1. 如果正在 STO 儲存狀態
-        if (isSto) {
-            try {
-                let val = expr ? evaluateMathString(expr) : ans;
-                memoryVars[varName] = val; // 存入變數
-                isSto = false;
-                calcState = 'NORMAL';
-                history.innerText = `${val} → ${varName}`; // 【更新】顯示 "數值 → 英文字母"
-                expr = val.toString();
-                ans = val;
-                isResultDisplayed = true;
-            } catch (e) {
-                expr = 'Math ERROR';
-            }
-            updateDisplay();
-            return;
-        }
-        
-        // 2. 如果正在 ALPHA 狀態，將字母輸入至算式
-        if (isAlpha) {
-            insertStr(varName);
-            isAlpha = false; // 用完自動關閉 Alpha
-            updateDisplay();
-            return;
-        }
-        
-        // 3. 一般狀態，執行按鈕原本的功能
-        normalAction();
-    }
-
-    function handleMPlus() {
-        try {
-            let val = expr ? evaluateMathString(expr) : ans;
-            memoryVars.M += val;
-            calcState = 'NORMAL';
-            history.innerText = `${val} M+`; // 【更新】顯示 "數值 M+"
-            expr = val.toString();
-            ans = val;
-            isResultDisplayed = true;
-        } catch(e) {
-            expr = 'Math ERROR';
-        }
-        updateDisplay();
-    }
-
-    function toggleDegRad() {
-        isDeg = !isDeg;
-        indDeg.innerText = isDeg ? 'D' : 'R';
-    }
-
-    // 處理 x⁻¹ 與 x!
-    function handleInvOrFact() {
-        if (isShift) {
-            insertStr('!');
-            isShift = false;
-            updateDisplay();
-        } else {
-            insertStr('⁻¹');
-        }
-    }
-
-    // 新增：處理小數點與隨機數 (Ran#)
-    function handleDotOrRan() {
-        if (isShift) {
-            insertStr('Ran#');
-            isShift = false;
-            updateDisplay();
-        } else {
-            insertStr('.');
-        }
-    }
-
-    // 新增：處理排列 (nPr) 與組合 (nCr)
-    function handlePermComb(type, defaultChar) {
-        if (isShift) {
-            // 使用零寬度空格包裹，讓內部解析器能精準辨識為運算符號而不是英文字母變數
-            insertStr('\u200B' + type + '\u200B'); 
-            isShift = false;
-            updateDisplay();
-        } else {
-            insertStr(defaultChar);
-        }
-    }
-
-    function prepareNewInput(str = null) {
-        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
-            expr = '';
-            history.innerText = '';
-        }
-
-        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'FMLA3_AREA' || calcState === 'PROG_X' || calcState === 'PROG_Y') {
-            calcState = 'NORMAL';
-        }
-
-        if (isResultDisplayed) {
-            isResultDisplayed = false;
-            history.innerText = '';
-            // 加入 nPr (P) 與 nCr (C) 到接續運算陣列
-            if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%', '!', '\u200BP\u200B', '\u200BC\u200B'].includes(str)) {
-                expr = 'Ans'; 
-            } else {
-                expr = ''; 
-            }
-        }
-
-        if (historyIndex !== -1 && historyIndex !== calcHistory.length) {
-            historyIndex = calcHistory.length;
-            history.innerText = '';
-        }
-    }
-
-    function insertTrig(func) {
-        prepareNewInput();
-        if (isShift) {
-            expr += func + '⁻¹(';
-            isShift = false; 
-        } else {
-            expr += func + '(';
-        }
-        updateDisplay();
-    }
-
-    function insertStr(str) {
-        prepareNewInput(str);
-        expr += str;
-        updateDisplay();
-    }
-
-    function insertOpenParenOrPercent() {
-        if (isShift) {
-            insertStr('%');
-            isShift = false;
-        } else {
-            insertStr('(');
-        }
-        updateDisplay();
-    }
-
-    function toFraction(decimal) {
-        if (!isFinite(decimal) || isNaN(decimal)) return decimal.toString();
-        let sign = decimal < 0 ? -1 : 1;
-        let x = Math.abs(decimal);
-        if (x % 1 === 0) return (sign * x).toString(); 
-        
-        let h1 = 1, h2 = 0;
-        let k1 = 0, k2 = 1;
-        let b = x;
-        let maxDenominator = 100000; 
-        
-        do {
-            let a = Math.floor(b);
-            let aux = h1; h1 = a * h1 + h2; h2 = aux;
-            aux = k1; k1 = a * k1 + k2; k2 = aux;
-            b = 1 / (b - a);
-        } while (Math.abs(x - h1 / k1) > 1e-10 && k1 <= maxDenominator);
-        
-        if (Math.abs(x - h1 / k1) <= 1e-9) {
-            return (sign * h1) + '⌟' + k1;
-        }
-        return decimal.toString(); 
-    }
-
-    function handleFraction() {
-        if (isShift) {
-            try {
-                let val = evaluateMathString(expr || '0');
-                if (expr.includes('⌟')) {
-                    expr = val.toString();
-                } else {
-                    expr = toFraction(val);
-                }
-                isShift = false;
-                isResultDisplayed = true; 
-                history.innerText = '';
-                updateDisplay();
-            } catch (e) {
-                expr = 'Math ERROR';
-                updateDisplay();
-            }
-        } else {
-            prepareNewInput('⌟');
-            expr += '⌟';
-            updateDisplay();
-        }
-    }
-
-    function insertCommand(cmd) {
-        calcState = 'NORMAL';
-        expr = cmd; 
-        history.innerText = ''; 
-        isShift = false; 
-        isAlpha = false;
-        isSto = false;
-        isResultDisplayed = false;
-        updateDisplay();
-    }
-
-    function insertExpOrPi() {
-        if (isShift) {
-            insertStr('π');
-            isShift = false;
-        } else {
-            insertStr('E');
-        }
-        updateDisplay();
-    }
-
-    function startQuadraticProgram() {
-        calcState = 'FMLA_A';
-        expr = '';
-        history.innerText = 'ax² + bx + c = 0';
-        isResultDisplayed = false;
-        updateDisplay();
-    }
-
-    function startLinearProgram() {
-        calcState = 'PROG_A1';
-        expr = '';
-        history.innerText = 'anX + bnY = cn';
-        isResultDisplayed = false;
-        updateDisplay();
-    }
-
-    function startHeronProgram() {
-        calcState = 'FMLA3_A';
-        expr = '';
-        history.innerText = 'Heron\'s Formula';
-        isResultDisplayed = false;
-        updateDisplay();
-    }
-
-    function navigateHistory(direction) {
-        if (calcHistory.length === 0 || calcState !== 'NORMAL') return;
-
-        if (historyIndex === -1) {
-            historyIndex = calcHistory.length - 1; 
-        } else {
-            historyIndex += direction;
-        }
-
-        if (historyIndex < 0) historyIndex = calcHistory.length - 1;
-        if (historyIndex >= calcHistory.length) historyIndex = 0;
-
-        let record = calcHistory[historyIndex];
-        history.innerText = record.expression;
-        expr = record.result;
-        isResultDisplayed = true; 
-        updateDisplay();
-    }
-
-    function clearAll() {
-        calcState = 'NORMAL';
-        expr = '';
-        history.innerText = '';
-        historyIndex = calcHistory.length; 
-        isResultDisplayed = false;
-        isSto = false;
-        isAlpha = false;
-        isShift = false;
-        updateDisplay();
-    }
-
-    function deleteLast() {
-        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') {
-            clearAll();
-            return;
-        }
-
-        if (calcState === 'FMLA_X1' || calcState === 'FMLA_X2' || calcState === 'FMLA3_AREA' || calcState === 'PROG_X' || calcState === 'PROG_Y' || isResultDisplayed) {
-            clearAll();
-            return;
-        }
-        
-        if (expr.endsWith('\u200BP\u200B') || expr.endsWith('\u200BC\u200B')) {
-            expr = expr.slice(0, -3); // 精準刪除 nPr/nCr 特殊符號 (包含隱藏字元)
-        } else if (expr.endsWith('Ran#')) {
-            expr = expr.slice(0, -4); // 精準刪除 Ran#
-        } else if (expr.endsWith('sin⁻¹(') || expr.endsWith('cos⁻¹(') || expr.endsWith('tan⁻¹(')) {
-            expr = expr.slice(0, -6); 
-        } else if (expr.endsWith('FMLA ') || expr.endsWith('Prog ')) {
-            expr = expr.slice(0, -5);
-        } else if (expr.endsWith('sin(') || expr.endsWith('cos(') || expr.endsWith('tan(') || expr.endsWith('log(')) {
-            expr = expr.slice(0, -4);
-        } else if (expr.endsWith('ln(') || expr.endsWith('Ans')) {
-            expr = expr.slice(0, -3);
-        } else {
-            expr = expr.slice(0, -1);
-        }
-        updateDisplay();
-    }
-
-    const mathLib = {
-        sin: (x) => Math.sin(isDeg ? x * Math.PI / 180 : x),
-        cos: (x) => Math.cos(isDeg ? x * Math.PI / 180 : x),
-        tan: (x) => Math.tan(isDeg ? x * Math.PI / 180 : x),
-        asin: (x) => isDeg ? Math.asin(x) * 180 / Math.PI : Math.asin(x),
-        acos: (x) => isDeg ? Math.acos(x) * 180 / Math.PI : Math.acos(x),
-        atan: (x) => isDeg ? Math.atan(x) * 180 / Math.PI : Math.atan(x),
-        log: Math.log10,
-        ln: Math.log,
-        sqrt: Math.sqrt,
-        pi: Math.PI,
-        M: 0,
-        ran: () => Math.floor(Math.random() * 1000) / 1000, // 隨機生成 0.000 ~ 0.999
-        fact: (n) => {
-            if (n < 0 || !Number.isInteger(n)) throw new Error("Math ERROR");
-            if (n === 0 || n === 1) return 1;
-            let res = 1;
-            for (let i = 2; i <= n; i++) res *= i;
-            return res;
-        },
-        nPr: (n, r) => {
-            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
-            let res = 1;
-            for (let i = n; i > n - r; i--) res *= i;
-            return res;
-        },
-        nCr: (n, r) => {
-            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
-            let res = 1;
-            for (let i = 1; i <= r; i++) res = res * (n - i + 1) / i;
-            return Math.round(res);
-        }
-    };
-
-    function evaluateMathString(inputExpr) {
-        let evalStr = inputExpr;
-
-        // 載入當前變數庫的數值
-        mathLib.A = memoryVars.A;
-        mathLib.B = memoryVars.B;
-        mathLib.C = memoryVars.C;
-        mathLib.D = memoryVars.D;
-        mathLib.E = memoryVars.E;
-        mathLib.F = memoryVars.F;
-        mathLib.X = memoryVars.X;
-        mathLib.Y = memoryVars.Y;
-        mathLib.M = memoryVars.M;
-
-        evalStr = evalStr.replace(/×/g, '*');
-        evalStr = evalStr.replace(/÷/g, '/');
-        evalStr = evalStr.replace(/Ans/g, `(${ans})`);
-        evalStr = evalStr.replace(/π/g, 'pi');
-        evalStr = evalStr.replace(/⌟/g, '/'); 
-        evalStr = evalStr.replace(/M\+/g, 'M'); 
-        evalStr = evalStr.replace(/Ran#/g, 'ran()'); // 解析 Ran# 為內置隨機函數
-        
-        // --- 內部函數：向左/右提取運算元，用於 !, nPr, nCr 語法樹解析 ---
-        function extractOperandLeft(str, idx) {
-            let start = idx - 1;
-            let parens = 0;
-            if (str[start] === ')') {
-                parens = 1;
-                start--;
-                while (start >= 0 && parens > 0) {
-                    if (str[start] === ')') parens++;
-                    else if (str[start] === '(') parens--;
-                    start--;
-                }
-                start++;
-                let funcMatch = str.substring(0, start).match(/[a-zA-Z_]+$/);
-                if (funcMatch) start -= funcMatch[0].length;
-                start--; 
-            } else if (/[A-Z!M]/.test(str[start])) { 
-                start--; 
-            } else {
-                while (start >= 0 && /[\d\.]/.test(str[start])) start--;
-            }
-            return { expr: str.substring(start + 1, idx), newStart: start + 1 };
-        }
-
-        function extractOperandRight(str, idx) {
-            let end = idx;
-            let parens = 0;
-            let funcMatch = str.substring(end).match(/^[a-zA-Z_]+/);
-            if (funcMatch) end += funcMatch[0].length;
-
-            if (str[end] === '(') {
-                parens = 1;
-                end++;
-                while (end < str.length && parens > 0) {
-                    if (str[end] === '(') parens++;
-                    else if (str[end] === ')') parens--;
-                    end++;
-                }
-            } else if (/[A-Z]/.test(str[end])) { 
-                end++;
-            } else {
-                if (str[end] === '-') end++; // 容許負號
-                while (end < str.length && /[\d\.]/.test(str[end])) end++;
-            }
-            return { expr: str.substring(idx, end), newEnd: end };
-        }
-
-        // 處理階乘 ! (向左溯源尋找運算元)
-        while (evalStr.indexOf('!') !== -1) {
-            let idx = evalStr.indexOf('!');
-            let left = extractOperandLeft(evalStr, idx);
-            evalStr = evalStr.substring(0, left.newStart) + `fact(${left.expr})` + evalStr.substring(idx + 1);
-        }
-
-        // 處理排列組合 nPr (P) 與 nCr (C)
-        while (evalStr.indexOf('\u200BP\u200B') !== -1) {
-            let idx = evalStr.indexOf('\u200BP\u200B');
-            let left = extractOperandLeft(evalStr, idx);
-            let right = extractOperandRight(evalStr, idx + 3); // \u200BP\u200B 長度為 3
-            evalStr = evalStr.substring(0, left.newStart) + `nPr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
-        }
-        while (evalStr.indexOf('\u200BC\u200B') !== -1) {
-            let idx = evalStr.indexOf('\u200BC\u200B');
-            let left = extractOperandLeft(evalStr, idx);
-            let right = extractOperandRight(evalStr, idx + 3);
-            evalStr = evalStr.substring(0, left.newStart) + `nCr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
-        }
-
-        evalStr = evalStr.replace(/%/g, '/100');
-        
-        evalStr = evalStr.replace(/sin⁻¹/g, 'asin');
-        evalStr = evalStr.replace(/cos⁻¹/g, 'acos');
-        evalStr = evalStr.replace(/tan⁻¹/g, 'atan');
-        evalStr = evalStr.replace(/√/g, 'sqrt');
-
-        evalStr = evalStr.replace(/²/g, '**2');
-        evalStr = evalStr.replace(/³/g, '**3');
-        evalStr = evalStr.replace(/⁻¹/g, '**-1');
-        evalStr = evalStr.replace(/\^/g, '**');
-
-        evalStr = evalStr.replace(/E\((-?\d+)\)/g, '*10**$1');
-        evalStr = evalStr.replace(/E(-?\d+)/g, '*10**$1');
-
-        // 隱式乘法更新：支援 fact()、nPr()、nCr()、ran() 前的隱式乘法
-        evalStr = evalStr.replace(/(\d|\)|pi|%|A|B|C|D|E|F|X|Y|M)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|fact|nPr|nCr|ran|pi|A|B|C|D|E|F|X|Y|M)/g, '$1*');
-        evalStr = evalStr.replace(/(\)|pi|%|M)(?=\d)/g, '$1*');
-
-        let openBrackets = (evalStr.match(/\(/g) || []).length;
-        let closeBrackets = (evalStr.match(/\)/g) || []).length;
-        for(let i = 0; i < (openBrackets - closeBrackets); i++) {
-            evalStr += ')';
-        }
-
-        let result = new Function('mathLib', `
-            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, fact, nPr, nCr, ran, pi, A, B, C, D, E, F, X, Y, M } = mathLib;
-            return ${evalStr};
-        `)(mathLib);
-
-        if (!isFinite(result) || isNaN(result)) {
-            throw new Error("Math ERROR");
-        }
-
-        return parseFloat(result.toPrecision(12));
-    }
-
-    function handleProgExe() {
-        try {
-            let val;
-            if (expr !== '') {
-                val = evaluateMathString(expr);
-            } else {
-                if (calcState === 'PROG_A1') val = progVars.a1;
-                else if (calcState === 'PROG_B1') val = progVars.b1;
-                else if (calcState === 'PROG_C1') val = progVars.c1;
-                else if (calcState === 'PROG_A2') val = progVars.a2;
-                else if (calcState === 'PROG_B2') val = progVars.b2;
-                else if (calcState === 'PROG_C2') val = progVars.c2;
-            }
-            
-            if (calcState === 'PROG_A1') {
-                progVars.a1 = val; calcState = 'PROG_B1'; expr = ''; history.innerText = `a1 = ${val}`;
-            } else if (calcState === 'PROG_B1') {
-                progVars.b1 = val; calcState = 'PROG_C1'; expr = ''; history.innerText = `b1 = ${val}`;
-            } else if (calcState === 'PROG_C1') {
-                progVars.c1 = val; calcState = 'PROG_A2'; expr = ''; history.innerText = `c1 = ${val}`;
-            } else if (calcState === 'PROG_A2') {
-                progVars.a2 = val; calcState = 'PROG_B2'; expr = ''; history.innerText = `a2 = ${val}`;
-            } else if (calcState === 'PROG_B2') {
-                progVars.b2 = val; calcState = 'PROG_C2'; expr = ''; history.innerText = `b2 = ${val}`;
-            } else if (calcState === 'PROG_C2') {
-                progVars.c2 = val;
-                
-                let D = progVars.a1 * progVars.b2 - progVars.a2 * progVars.b1;
-                if (D === 0) throw new Error("Math ERROR"); 
-                
-                progVars.x = (progVars.c1 * progVars.b2 - progVars.c2 * progVars.b1) / D;
-                progVars.y = (progVars.a1 * progVars.c2 - progVars.a2 * progVars.c1) / D;
-                
-                progVars.x = parseFloat(progVars.x.toPrecision(12));
-                progVars.y = parseFloat(progVars.y.toPrecision(12));
-
-                calcState = 'PROG_X';
-                history.innerText = 'x =';
-                expr = progVars.x.toString();
-                ans = progVars.x;
-                isResultDisplayed = true;
-            } else if (calcState === 'PROG_X') {
-                calcState = 'PROG_Y';
-                history.innerText = 'y =';
-                expr = progVars.y.toString();
-                ans = progVars.y;
-                isResultDisplayed = true;
-            } else if (calcState === 'PROG_Y') {
-                calcState = 'NORMAL';
-                history.innerText = '';
-                expr = ans.toString();
-                isResultDisplayed = true;
-            }
-            updateDisplay();
-        } catch (error) {
-            calcState = 'NORMAL';
-            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
-            updateDisplay();
-        }
-    }
-
-    function handleFMLAExe() {
-        try {
-            let val;
-            if (expr !== '') {
-                val = evaluateMathString(expr);
-            } else {
-                if (calcState === 'FMLA_A') val = fmlaVars.a;
-                else if (calcState === 'FMLA_B') val = fmlaVars.b;
-                else if (calcState === 'FMLA_C') val = fmlaVars.c;
-            }
-            
-            if (calcState === 'FMLA_A') {
-                fmlaVars.a = val; calcState = 'FMLA_B'; expr = ''; history.innerText = `a = ${val}`;
-            } else if (calcState === 'FMLA_B') {
-                fmlaVars.b = val; calcState = 'FMLA_C'; expr = ''; history.innerText = `b = ${val}`;
-            } else if (calcState === 'FMLA_C') {
-                fmlaVars.c = val;
-                let delta = fmlaVars.b ** 2 - 4 * fmlaVars.a * fmlaVars.c;
-                
-                if (fmlaVars.a === 0) {
-                    if (fmlaVars.b === 0) throw new Error("Math ERROR");
-                    fmlaVars.x1 = -fmlaVars.c / fmlaVars.b;
-                    fmlaVars.x2 = fmlaVars.x1;
-                } else if (delta < 0) {
-                    throw new Error("Math ERROR"); 
-                } else {
-                    fmlaVars.x1 = (fmlaVars.b - Math.sqrt(delta)) / (2 * fmlaVars.a);
-                    fmlaVars.x2 = (fmlaVars.b + Math.sqrt(delta)) / (2 * fmlaVars.a);
-                }
-                
-                fmlaVars.x1 = parseFloat(fmlaVars.x1.toPrecision(12));
-                fmlaVars.x2 = parseFloat(fmlaVars.x2.toPrecision(12));
-
-                calcState = 'FMLA_X1';
-                history.innerText = 'x1 =';
-                expr = fmlaVars.x1.toString();
-                ans = fmlaVars.x1;
-                isResultDisplayed = true;
-            } else if (calcState === 'FMLA_X1') {
-                calcState = 'FMLA_X2';
-                history.innerText = 'x2 =';
-                expr = fmlaVars.x2.toString();
-                ans = fmlaVars.x2;
-                isResultDisplayed = true;
-            } else if (calcState === 'FMLA_X2') {
-                calcState = 'NORMAL';
-                history.innerText = '';
-                expr = ans.toString();
-                isResultDisplayed = true;
-            }
-            updateDisplay();
-        } catch (error) {
-            calcState = 'NORMAL';
-            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
-            updateDisplay();
-        }
-    }
-
-    function handleFMLA3Exe() {
-        try {
-            let val;
-            if (expr !== '') val = evaluateMathString(expr);
-            else {
-                if (calcState === 'FMLA3_A') val = fmla3Vars.a;
-                else if (calcState === 'FMLA3_B') val = fmla3Vars.b;
-                else if (calcState === 'FMLA3_C') val = fmla3Vars.c;
-            }
-
-            if (calcState === 'FMLA3_A') {
-                fmla3Vars.a = val; calcState = 'FMLA3_B'; expr = ''; history.innerText = `a = ${val}`;
-            } else if (calcState === 'FMLA3_B') {
-                fmla3Vars.b = val; calcState = 'FMLA3_C'; expr = ''; history.innerText = `b = ${val}`;
-            } else if (calcState === 'FMLA3_C') {
-                fmla3Vars.c = val;
-                
-                let a = fmla3Vars.a, b = fmla3Vars.b, c = fmla3Vars.c;
-                if (a + b <= c || a + c <= b || b + c <= a || a <= 0 || b <= 0 || c <= 0) {
-                    throw new Error("Math ERROR");
-                }
-                
-                let s = (a + b + c) / 2;
-                let areaSq = s * (s - a) * (s - b) * (s - c);
-                if (areaSq < 0) throw new Error("Math ERROR");
-                
-                fmla3Vars.area = Math.sqrt(areaSq);
-                fmla3Vars.area = parseFloat(fmla3Vars.area.toPrecision(12));
-
-                calcState = 'FMLA3_AREA';
-                history.innerText = 'Area =';
-                expr = fmla3Vars.area.toString();
-                ans = fmla3Vars.area;
-                isResultDisplayed = true;
-            } else if (calcState === 'FMLA3_AREA') {
-                calcState = 'NORMAL';
-                history.innerText = '';
-                expr = ans.toString();
-                isResultDisplayed = true;
-            }
-            updateDisplay();
-        } catch (error) {
-            calcState = 'NORMAL';
-            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
-            updateDisplay();
-        }
-    }
-
-    function calculate() {
-        if (calcState.startsWith('FMLA3_')) { handleFMLA3Exe(); return; }
-        if (calcState.startsWith('FMLA_')) { handleFMLAExe(); return; }
-        if (calcState.startsWith('PROG_')) { handleProgExe(); return; }
-        if (!expr) return;
-
-        let trimmedExpr = expr.trim();
-        if (trimmedExpr === 'FMLA 01' || trimmedExpr === 'FMLA 1') { startQuadraticProgram(); return; }
-        if (trimmedExpr === 'FMLA 03' || trimmedExpr === 'FMLA 3') { startHeronProgram(); return; }
-        if (trimmedExpr === 'Prog 01' || trimmedExpr === 'Prog 1') { startLinearProgram(); return; }
-
-        history.innerText = expr;
-
-        try {
-            let result = evaluateMathString(expr);
-            
-            calcHistory.push({ expression: expr, result: result.toString() });
-            historyIndex = calcHistory.length; 
-
-            expr = result.toString();
-            ans = result;
-            isResultDisplayed = true; 
-            updateDisplay();
-        } catch (error) {
-            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
-            updateDisplay();
-        }
-    }
-
-    /* ---------------- 放大鏡專屬邏輯 ---------------- */
-    let isMagnifying = false;
-    let lastMouseEvent = null;
-
     function toggleMagnifier() {
         isMagnifying = !isMagnifying;
         const lens = document.getElementById('lens');
         const btn = document.getElementById('mag-btn');
-
         if (isMagnifying) {
-            lens.style.display = 'block';
-            btn.classList.add('active');
-            updateMagnifier(); 
+            lens.style.display = 'block'; btn.classList.add('active'); updateMagnifier(); 
         } else {
-            lens.style.display = 'none';
-            lens.innerHTML = ''; 
-            btn.classList.remove('active');
+            lens.style.display = 'none'; lens.innerHTML = ''; btn.classList.remove('active');
         }
     }
-
-    document.addEventListener('mousemove', (e) => {
-        lastMouseEvent = e;
-        if (isMagnifying) updateMagnifier();
-    });
 
     function updateMagnifier() {
         if (!isMagnifying || !lastMouseEvent) return;
@@ -1609,7 +916,6 @@
         const lensSize = 160; 
         lens.style.left = (e.clientX - lensSize / 2) + 'px';
         lens.style.top = (e.clientY - lensSize / 2) + 'px';
-
         const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
         const zoom = 2; 
@@ -1623,6 +929,769 @@
         calcClone.style.boxShadow = 'none'; 
     }
 
+    function updateDisplay() {
+        const display = document.getElementById('display');
+        const history = document.getElementById('history');
+        const indDeg = document.getElementById('ind-deg');
+        const indShift = document.getElementById('ind-shift');
+        const indAlpha = document.getElementById('ind-alpha');
+        const indSd = document.getElementById('ind-sd');
+        const indCmplx = document.getElementById('ind-cmplx');
+        const indBase = document.getElementById('ind-base');
+        const screenContent = document.querySelector('.screen-content');
+
+        let displayText = expr;
+        
+        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN'].includes(calcState)) {
+            screenContent.classList.add('mode-menu-view');
+            if (calcState === 'MODE_MENU_1') displayText = '1:COMP 2:CMPLX 3:BASE';
+            else if (calcState === 'MODE_MENU_2') displayText = '4:SD  5:REG  6:PRGM';
+            else if (calcState === 'PRGM_MENU') displayText = '1:EDIT     2:RUN';
+            else if (calcState === 'PRGM_SYMBOL_MENU_1') displayText = '1:?  2:→  3::  4:◢';
+            else if (calcState === 'PRGM_SYMBOL_MENU_2') displayText = '1:=> 2:=  3:≠  4:>';
+            else if (calcState === 'PRGM_SYMBOL_MENU_3') displayText = '1:<  2:≥  3:≤';
+            else if (calcState === 'PRGM_SELECT_EDIT' || calcState === 'PRGM_SELECT_RUN') displayText = 'Prog No?';
+        } else {
+            screenContent.classList.remove('mode-menu-view');
+            if (calcState === 'FMLA_INPUT' && currentFmla) {
+                let varName = currentFmla.vars[fmlaInputIdx];
+                displayText = varName + '? ' + (expr !== '' ? expr : currentFmla.inputs[varName]);
+            } else if (calcState === 'FMLA_OUTPUT') {
+                displayText = expr;
+            } else if (calcState === 'PRGM_EDITING') {
+                if (history) history.innerText = 'Prog ' + editProgId;
+                displayText = expr;
+            } else if (calcState === 'PROG_INPUT_VAR') {
+                if (history) history.innerText = progPromptVar + '?';
+                displayText = expr !== '' ? expr : memoryVars[progPromptVar];
+            } else if (calcState === 'PROG_OUTPUT') {
+                if (history) history.innerText = 'Disp';
+                displayText = expr;
+            } else if (calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') {
+                displayText = expr || '0';
+            } else {
+                displayText = expr || '0'; 
+            }
+        }
+
+        if (display) {
+            display.innerHTML = displayText + '<span class="cursor">_</span>';
+            // 自動滾動到底部以保持輸入可見 (除非正在瀏覽模式)
+            if (!['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN'].includes(calcState)) {
+                display.scrollLeft = display.scrollWidth;
+            }
+        }
+        
+        if (indShift) indShift.innerText = isSto ? 'STO' : (isShift ? 'S' : '');
+        if (indAlpha) indAlpha.innerText = isAlpha ? 'A' : '';
+        if (indSd) indSd.innerText = sdMode ? 'SD' : '';
+        if (indCmplx) indCmplx.innerText = cmplxMode ? 'CMPLX' : '';
+        if (indBase) indBase.innerText = baseMode ? currentBase : '';
+        
+        if (isMagnifying) updateMagnifier();
+    }
+
+    function toggleShift() { isShift = !isShift; isAlpha = false; isSto = false; updateDisplay(); }
+    function toggleAlpha() { isAlpha = !isAlpha; isShift = false; isSto = false; updateDisplay(); }
+
+    function handleRclSto() {
+        if (isShift) { isSto = true; isShift = false; isAlpha = false; } 
+        else { isAlpha = true; isShift = false; isSto = false; }
+        updateDisplay();
+    }
+
+    function handleVarKey(varName, normalAction) {
+        if (baseMode && currentBase === 'HEX' && ['A','B','C','D','E','F'].includes(varName)) {
+            insertStr(varName); return;
+        }
+
+        if (isSto) {
+            try {
+                let val = expr ? evaluateMathString(expr) : ans;
+                memoryVars[varName] = val; 
+                isSto = false; calcState = 'NORMAL';
+                const history = document.getElementById('history');
+                if (history) history.innerText = `${val} → ${varName}`; 
+                expr = val.toString(); ans = val; isResultDisplayed = true;
+            } catch (e) { expr = 'Math ERROR'; }
+            updateDisplay(); return;
+        }
+        if (isAlpha) {
+            insertStr(varName); isAlpha = false; updateDisplay(); return;
+        }
+        normalAction();
+    }
+
+    function handleEngOrI() {
+        if (cmplxMode) {
+            insertStr('i'); isShift = false; updateDisplay();
+        } else {
+            if (isShift) { insertStr('←'); isShift = false; updateDisplay(); } 
+            else { insertStr('ENG'); }
+        }
+    }
+
+    function handleProgBtn() {
+        const history = document.getElementById('history');
+        if (isShift) {
+            if (calcState === 'PRGM_EDITING') {
+                userPrograms[editProgId] = expr;
+                calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+            } else if (calcState.startsWith('PRGM_') || calcState.startsWith('MODE_')) {
+                calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+            }
+            isShift = false;
+            updateDisplay();
+        } else {
+            if (calcState === 'PRGM_EDITING') {
+                calcState = 'PRGM_SYMBOL_MENU_1';
+                updateDisplay();
+            } else {
+                insertCommand('Prog ');
+            }
+        }
+    }
+
+    function handleMPlus() {
+        const history = document.getElementById('history');
+        try {
+            if (sdMode) {
+                let targetExpr = expr || ans.toString();
+                let val, freq = 1;
+                if (targetExpr.includes(';')) {
+                    let parts = targetExpr.split(';');
+                    if (parts.length !== 2 || parts[0] === '' || parts[1] === '') throw new Error("Syntax ERROR");
+                    val = evaluateMathString(parts[0]);
+                    freq = Math.round(evaluateMathString(parts[1]));
+                } else { val = evaluateMathString(targetExpr); }
+                
+                if (freq < 1) throw new Error("Math ERROR");
+                for (let i = 0; i < freq; i++) sdData.push(val);
+                
+                calcState = 'NORMAL'; if(history) history.innerText = 'n =';
+                expr = sdData.length.toString(); ans = sdData.length; isResultDisplayed = true;
+            } else {
+                let val = expr ? evaluateMathString(expr) : ans;
+                memoryVars.M += val; calcState = 'NORMAL';
+                if(history) history.innerText = `${val} M+`; expr = val.toString(); ans = val; isResultDisplayed = true;
+            }
+        } catch(e) { expr = e.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; }
+        updateDisplay();
+    }
+
+    function toggleDegRad() { 
+        isDeg = !isDeg; 
+        const indDeg = document.getElementById('ind-deg');
+        if(indDeg) indDeg.innerText = isDeg ? 'D' : 'R'; 
+    }
+
+    function handleModeSetup() {
+        if (isShift) { toggleDegRad(); isShift = false; updateDisplay(); } 
+        else {
+            if (calcState === 'MODE_MENU_1') calcState = 'MODE_MENU_2';
+            else if (calcState === 'MODE_MENU_2') calcState = 'MODE_MENU_1';
+            else calcState = 'MODE_MENU_1';
+
+            expr = ''; 
+            const history = document.getElementById('history');
+            if (history) history.innerText = '';
+            isResultDisplayed = false; updateDisplay();
+        }
+    }
+
+    function switchBase(newBase) {
+        currentBase = newBase;
+        if (isResultDisplayed && ans !== undefined) {
+            let res = Math.trunc(ans);
+            if (res < 0) res = (res >>> 0); 
+            if (newBase === 'HEX') expr = res.toString(16).toUpperCase();
+            else if (newBase === 'BIN') expr = res.toString(2);
+            else if (newBase === 'OCT') expr = res.toString(8);
+            else expr = Math.trunc(ans).toString(10);
+        }
+        updateDisplay();
+    }
+
+    function handleSquareOrDec() { if (baseMode) switchBase('DEC'); else insertStr('²'); }
+    function handlePowerOrRootOrHex() {
+        if (baseMode) switchBase('HEX');
+        else if (isShift) { insertStr('x√('); isShift = false; updateDisplay(); }
+        else insertStr('^(');
+    }
+    function handleLogOr10PowOrBin() {
+        if (baseMode) switchBase('BIN');
+        else if (isShift) { insertStr('10^('); isShift = false; updateDisplay(); }
+        else insertStr('log(');
+    }
+    function handleLnOrEPowOrOct() {
+        if (baseMode) switchBase('OCT');
+        else if (isShift) { insertStr('e^('); isShift = false; updateDisplay(); }
+        else insertStr('ln(');
+    }
+    function handleCubeOrCubeRoot() {
+        if (isShift) { insertStr('³√('); isShift = false; updateDisplay(); } else { insertStr('³'); }
+    }
+    function handleInvOrFact() {
+        if (isShift) { insertStr('!'); isShift = false; updateDisplay(); } else { insertStr('⁻¹'); }
+    }
+    function handleDotOrRan() {
+        if (isShift) { insertStr('Ran#'); isShift = false; updateDisplay(); } else { insertStr('.'); }
+    }
+    function handleCommaOrSemicolon() {
+        if (isShift) { insertStr(';'); isShift = false; updateDisplay(); } else { insertStr(','); }
+    }
+    function handlePermComb(type, defaultChar) {
+        if (isShift) { insertStr('\u200B' + type + '\u200B'); isShift = false; updateDisplay(); } 
+        else { insertStr(defaultChar); }
+    }
+
+    function handleNum(numStr) {
+        const history = document.getElementById('history');
+
+        if (calcState.startsWith('MODE_MENU')) {
+            if (numStr === '1') {
+                sdMode = false; cmplxMode = false; baseMode = false; calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+            } else if (numStr === '2') {
+                sdMode = false; cmplxMode = true; baseMode = false; calcState = 'NORMAL'; expr = ''; if(history) history.innerText = ''; ans = 0;
+            } else if (numStr === '3') {
+                sdMode = false; cmplxMode = false; baseMode = true; currentBase = 'DEC'; calcState = 'NORMAL'; expr = '0'; if(history) history.innerText = ''; isResultDisplayed = true; ans = 0;
+            } else if (numStr === '4') {
+                sdMode = true; cmplxMode = false; baseMode = false; sdData = []; calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+            } else if (numStr === '6') {
+                calcState = 'PRGM_MENU'; expr = ''; updateDisplay(); return;
+            }
+            updateDisplay(); return;
+        }
+
+        if (calcState === 'PRGM_MENU') {
+            if (numStr === '1') { calcState = 'PRGM_SELECT_EDIT'; }
+            if (numStr === '2') { calcState = 'PRGM_SELECT_RUN'; }
+            updateDisplay(); return;
+        }
+
+        if (calcState === 'PRGM_SELECT_EDIT') {
+            if (['1','2','3','4'].includes(numStr)) {
+                editProgId = parseInt(numStr);
+                expr = userPrograms[editProgId] || '';
+                calcState = 'PRGM_EDITING';
+            }
+            updateDisplay(); return;
+        }
+
+        if (calcState === 'PRGM_SELECT_RUN') {
+            if (['1','2','3','4'].includes(numStr)) executeProgram(parseInt(numStr));
+            updateDisplay(); return;
+        }
+
+        if (calcState.startsWith('PRGM_SYMBOL_MENU')) {
+            let symbol = '';
+            if (calcState === 'PRGM_SYMBOL_MENU_1') {
+                if (numStr === '1') symbol = '?'; else if (numStr === '2') symbol = '→';
+                else if (numStr === '3') symbol = ':'; else if (numStr === '4') symbol = '◢';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_2') {
+                if (numStr === '1') symbol = '=>'; else if (numStr === '2') symbol = '=';
+                else if (numStr === '3') symbol = '≠'; else if (numStr === '4') symbol = '>';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_3') {
+                if (numStr === '1') symbol = '<'; else if (numStr === '2') symbol = '≥';
+                else if (numStr === '3') symbol = '≤';
+            }
+            if (symbol) {
+                expr += symbol;
+                calcState = 'PRGM_EDITING';
+            }
+            updateDisplay(); return;
+        }
+
+        if (calcState === 'SD_SUM_MENU') {
+            if (numStr === '1') insertStr('\u200BΣx²\u200B');
+            else if (numStr === '2') insertStr('\u200BΣx\u200B');
+            else if (numStr === '3') insertStr('\u200Bn\u200B');
+            calcState = 'NORMAL'; updateDisplay(); return;
+        }
+
+        if (calcState === 'SD_VAR_MENU') {
+            if (numStr === '1') insertStr('\u200Bx̄\u200B');
+            else if (numStr === '2') insertStr('\u200Bσx\u200B');
+            else if (numStr === '3') insertStr('\u200Bsx\u200B');
+            calcState = 'NORMAL'; updateDisplay(); return;
+        }
+
+        if (isShift) {
+            if (sdMode && numStr === '1') {
+                calcState = 'SD_SUM_MENU'; if(history) history.innerText = '1:Σx² 2:Σx 3:n';
+                expr = ''; isShift = false; updateDisplay(); return;
+            }
+            if (sdMode && numStr === '2') {
+                calcState = 'SD_VAR_MENU'; if(history) history.innerText = '1:x̄ 2:σx 3:sx';
+                expr = ''; isShift = false; updateDisplay(); return;
+            }
+            isShift = false; 
+        }
+
+        insertStr(numStr);
+    }
+
+    function prepareNewInput(str = null) {
+        const history = document.getElementById('history');
+        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') { expr = ''; if(history) history.innerText = ''; }
+
+        if (calcState === 'FMLA_OUTPUT' || calcState === 'PROG_OUTPUT' || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') {
+            calcState = 'NORMAL'; if(history) history.innerText = '';
+        }
+
+        if (isResultDisplayed) {
+            isResultDisplayed = false; if(history) history.innerText = '';
+            if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%', '!', '\u200BP\u200B', '\u200BC\u200B', 'x√(', ';', '→', ':', '◢', '=>', '=', '≠', '>', '<', '≥', '≤'].includes(str)) {
+                if (baseMode) {
+                    if (currentBase === 'HEX') expr = (ans>>>0).toString(16).toUpperCase();
+                    else if (currentBase === 'BIN') expr = (ans>>>0).toString(2);
+                    else if (currentBase === 'OCT') expr = (ans>>>0).toString(8);
+                    else expr = Math.trunc(ans).toString(10);
+                } else { expr = 'Ans'; }
+            } else { expr = ''; }
+        }
+
+        if (historyIndex !== -1 && historyIndex !== calcHistory.length) {
+            historyIndex = calcHistory.length; if(history) history.innerText = '';
+        }
+    }
+
+    function insertTrig(func) {
+        prepareNewInput();
+        if (isShift) { expr += func + '⁻¹('; isShift = false; } else { expr += func + '('; }
+        updateDisplay();
+    }
+
+    function insertStr(str) { prepareNewInput(str); expr += str; updateDisplay(); }
+
+    function insertOpenParenOrPercent() {
+        if (isShift) { insertStr('%'); isShift = false; } else { insertStr('('); }
+        updateDisplay();
+    }
+
+    function toFraction(decimal) {
+        if (!isFinite(decimal) || isNaN(decimal)) return decimal.toString();
+        let sign = decimal < 0 ? -1 : 1; let x = Math.abs(decimal);
+        if (x % 1 === 0) return (sign * x).toString(); 
+        
+        let h1 = 1, h2 = 0, k1 = 0, k2 = 1, b = x, maxDenominator = 100000; 
+        do {
+            let a = Math.floor(b); let aux = h1; h1 = a * h1 + h2; h2 = aux;
+            aux = k1; k1 = a * k1 + k2; k2 = aux; b = 1 / (b - a);
+        } while (Math.abs(x - h1 / k1) > 1e-10 && k1 <= maxDenominator);
+        
+        if (Math.abs(x - h1 / k1) <= 1e-9) return (sign * h1) + '⌟' + k1;
+        return decimal.toString(); 
+    }
+
+    function handleFraction() {
+        const history = document.getElementById('history');
+        if (isShift) {
+            try {
+                let val = evaluateMathString(expr || '0');
+                if (expr.includes('⌟')) expr = val.toString(); else expr = toFraction(val);
+                isShift = false; isResultDisplayed = true; if(history) history.innerText = ''; updateDisplay();
+            } catch (e) { expr = 'Math ERROR'; updateDisplay(); }
+        } else { prepareNewInput('⌟'); expr += '⌟'; updateDisplay(); }
+    }
+
+    function insertCommand(cmd) {
+        const history = document.getElementById('history');
+        calcState = 'NORMAL'; expr = cmd; if(history) history.innerText = ''; 
+        isShift = false; isAlpha = false; isSto = false; isResultDisplayed = false;
+        updateDisplay();
+    }
+
+    function insertExpOrPi() {
+        if (isShift) { insertStr('π'); isShift = false; } else { insertStr('E'); }
+        updateDisplay();
+    }
+
+    function startDynamicFmla(id) {
+        const history = document.getElementById('history');
+        currentFmla = FMLA_LIB[id];
+        if (!currentFmla) { calcState = 'NORMAL'; expr = 'Syntax ERROR'; updateDisplay(); return; }
+        calcState = 'FMLA_INPUT'; fmlaInputIdx = 0; expr = '';
+        if(history) history.innerText = 'FMLA ' + (id < 10 ? '0' + id : id) + ': ' + currentFmla.name;
+        isResultDisplayed = false; updateDisplay();
+    }
+
+    function navigateHistory(dir) {
+        if (calcState.startsWith('MODE_MENU')) {
+            if (dir === 'RIGHT' || dir === 'DOWN') calcState = calcState === 'MODE_MENU_1' ? 'MODE_MENU_2' : 'MODE_MENU_1';
+            else if (dir === 'LEFT' || dir === 'UP') calcState = calcState === 'MODE_MENU_2' ? 'MODE_MENU_1' : 'MODE_MENU_2';
+            updateDisplay(); return;
+        }
+
+        if (calcState.startsWith('PRGM_SYMBOL_MENU')) {
+            let page = parseInt(calcState.split('_')[3]);
+            if (dir === 'RIGHT' || dir === 'DOWN') page = page === 3 ? 1 : page + 1;
+            else if (dir === 'LEFT' || dir === 'UP') page = page === 1 ? 3 : page - 1;
+            calcState = 'PRGM_SYMBOL_MENU_' + page;
+            updateDisplay(); return;
+        }
+
+        // 橫向滑動查看長程式碼
+        if (dir === 'LEFT') {
+            const displayEl = document.getElementById('display');
+            if (displayEl) displayEl.scrollLeft -= 120;
+            return;
+        }
+        if (dir === 'RIGHT') {
+            const displayEl = document.getElementById('display');
+            if (displayEl) displayEl.scrollLeft += 120;
+            return;
+        }
+
+        // 歷史紀錄上下翻看
+        let direction = dir === 'UP' ? -1 : 1;
+        if (calcHistory.length === 0 || calcState !== 'NORMAL') return;
+
+        if (historyIndex === -1) historyIndex = calcHistory.length - 1; else historyIndex += direction;
+        if (historyIndex < 0) historyIndex = calcHistory.length - 1;
+        if (historyIndex >= calcHistory.length) historyIndex = 0;
+
+        let record = calcHistory[historyIndex];
+        const history = document.getElementById('history');
+        if (history) history.innerText = record.expression; 
+        expr = record.result;
+        isResultDisplayed = true; updateDisplay();
+    }
+
+    function clearAll() {
+        const history = document.getElementById('history');
+        if (calcState.startsWith('MODE_MENU') || calcState.startsWith('PRGM_SELECT_') || calcState === 'PRGM_MENU' || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') {
+            calcState = 'NORMAL'; if(history) history.innerText = ''; updateDisplay(); return;
+        }
+        if (calcState === 'PRGM_EDITING' || calcState.startsWith('PRGM_SYMBOL_MENU')) {
+            expr = ''; updateDisplay(); return; 
+        }
+
+        calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+        historyIndex = calcHistory.length; 
+        isResultDisplayed = false; isSto = false; isAlpha = false; isShift = false;
+        updateDisplay();
+    }
+
+    function deleteLast() {
+        if (expr === 'Syntax ERROR' || expr === 'Math ERROR') { clearAll(); return; }
+
+        if (calcState === 'FMLA_OUTPUT' || calcState === 'PROG_OUTPUT' || calcState.startsWith('MODE_MENU') || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU' || isResultDisplayed) {
+            clearAll(); return;
+        }
+        
+        if (expr.endsWith('\u200BΣx²\u200B') || expr.endsWith('\u200Bx̄\u200B') || expr.endsWith('\u200Bσx\u200B') || expr.endsWith('\u200Bsx\u200B')) expr = expr.slice(0, -5); 
+        else if (expr.endsWith('\u200BΣx\u200B')) expr = expr.slice(0, -4);
+        else if (expr.endsWith('\u200Bn\u200B') || expr.endsWith('\u200BP\u200B') || expr.endsWith('\u200BC\u200B')) expr = expr.slice(0, -3);
+        else if (expr.endsWith('Ran#')) expr = expr.slice(0, -4); 
+        else if (expr.endsWith('10^(')) expr = expr.slice(0, -4); 
+        else if (expr.endsWith('x√(') || expr.endsWith('³√(') || expr.endsWith('e^(')) expr = expr.slice(0, -3); 
+        else if (expr.endsWith('sin⁻¹(') || expr.endsWith('cos⁻¹(') || expr.endsWith('tan⁻¹(')) expr = expr.slice(0, -6); 
+        else if (expr.endsWith('FMLA ') || expr.endsWith('Prog ')) expr = expr.slice(0, -5);
+        else if (expr.endsWith('sin(') || expr.endsWith('cos(') || expr.endsWith('tan(') || expr.endsWith('log(')) expr = expr.slice(0, -4);
+        else if (expr.endsWith('ln(') || expr.endsWith('Ans')) expr = expr.slice(0, -3);
+        else if (expr.endsWith('=>')) expr = expr.slice(0, -2);
+        else if ([';', '?', '→', ':', '◢', '=', '≠', '<', '>', '≥', '≤'].includes(expr.slice(-1))) expr = expr.slice(0, -1);
+        else expr = expr.slice(0, -1); 
+        
+        updateDisplay();
+    }
+
+    const mathLib = {
+        sin: (x) => Math.sin(isDeg ? x * Math.PI / 180 : x), cos: (x) => Math.cos(isDeg ? x * Math.PI / 180 : x),
+        tan: (x) => Math.tan(isDeg ? x * Math.PI / 180 : x), asin: (x) => isDeg ? Math.asin(x) * 180 / Math.PI : Math.asin(x),
+        acos: (x) => isDeg ? Math.acos(x) * 180 / Math.PI : Math.acos(x), atan: (x) => isDeg ? Math.atan(x) * 180 / Math.PI : Math.atan(x),
+        log: Math.log10, ln: Math.log, sqrt: Math.sqrt, pi: Math.PI, e_num: Math.E, cbrt: Math.cbrt, 
+        xroot: (x, y) => { 
+            if (x === 0) throw new Error("Math ERROR");
+            let isOdd = Math.abs(x) % 2 === 1;
+            if (y < 0 && !isOdd) throw new Error("Math ERROR");
+            if (y < 0 && isOdd) return -Math.pow(-y, 1/x);
+            return Math.pow(y, 1/x);
+        },
+        M: 0, ran: () => Math.floor(Math.random() * 1000) / 1000, 
+        fact: (n) => {
+            if (n < 0 || !Number.isInteger(n)) throw new Error("Math ERROR");
+            if (n === 0 || n === 1) return 1;
+            let res = 1; for (let i = 2; i <= n; i++) res *= i; return res;
+        },
+        nPr: (n, r) => {
+            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
+            let res = 1; for (let i = n; i > n - r; i--) res *= i; return res;
+        },
+        nCr: (n, r) => {
+            if (n < 0 || r < 0 || !Number.isInteger(n) || !Number.isInteger(r) || n < r) throw new Error("Math ERROR");
+            let res = 1; for (let i = 1; i <= r; i++) res = res * (n - i + 1) / i; return Math.round(res);
+        },
+        sum_x2: () => sdData.reduce((a, b) => a + b * b, 0), sum_x: () => sdData.reduce((a, b) => a + b, 0), n_stat: () => sdData.length,
+        x_bar: () => { if(mathLib.n_stat() === 0) throw new Error("Math ERROR"); return mathLib.sum_x() / mathLib.n_stat(); },
+        sigma_x: () => {
+            let n = mathLib.n_stat(); if (n === 0) throw new Error("Math ERROR");
+            let v = mathLib.sum_x2() / n - Math.pow(mathLib.x_bar(), 2); return Math.sqrt(v < 0 ? 0 : v);
+        },
+        s_x: () => {
+            let n = mathLib.n_stat(); if (n <= 1) throw new Error("Math ERROR");
+            let v = (mathLib.sum_x2() - n * Math.pow(mathLib.x_bar(), 2)) / (n - 1); return Math.sqrt(v < 0 ? 0 : v);
+        }
+    };
+
+    function evaluateMathString(inputExpr) {
+        let evalStr = inputExpr;
+
+        if (baseMode) {
+            if (evalStr.includes(';')) throw new Error("Syntax ERROR");
+            let cStr = evalStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${ans})`);
+            let regex;
+            if (currentBase === 'HEX') regex = /\b[0-9A-F]+\b/g; else if (currentBase === 'BIN') regex = /\b[01]+\b/g;
+            else if (currentBase === 'OCT') regex = /\b[0-7]+\b/g; else regex = /\b[0-9]+\b/g;
+            cStr = cStr.replace(regex, (match) => {
+                if (currentBase === 'HEX') return parseInt(match, 16).toString();
+                if (currentBase === 'BIN') return parseInt(match, 2).toString();
+                if (currentBase === 'OCT') return parseInt(match, 8).toString();
+                return match;
+            });
+            try {
+                let res = Math.trunc(math.evaluate(cStr));
+                if (currentBase === 'HEX') return (res >>> 0).toString(16).toUpperCase();
+                if (currentBase === 'BIN') return (res >>> 0).toString(2);
+                if (currentBase === 'OCT') return (res >>> 0).toString(8);
+                return res.toString(10);
+            } catch(e) { throw new Error("Math ERROR"); }
+        }
+
+        if (cmplxMode && typeof math !== 'undefined') {
+            if (evalStr.includes(';')) throw new Error("Syntax ERROR");
+            try {
+                let cStr = evalStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${typeof ans === 'string' ? ans : ans})`)
+                    .replace(/π/g, 'pi').replace(/⌟/g, '/').replace(/M\+/g, 'M').replace(/Ran#/g, 'random()')
+                    .replace(/²/g, '^2').replace(/³/g, '^3').replace(/⁻¹/g, '^-1');
+                let scope = { A: memoryVars.A, B: memoryVars.B, C: memoryVars.C, D: memoryVars.D, E: memoryVars.E, F: memoryVars.F, X: memoryVars.X, Y: memoryVars.Y, M: memoryVars.M };
+                let res = math.evaluate(cStr, scope);
+                if (res && (res.isComplex || math.typeOf(res) === 'Complex')) {
+                    let re = math.round(res.re, 10), im = math.round(res.im, 10);
+                    if (re === 0 && im === 0) return 0;
+                    if (re === 0) return (im === 1 ? "" : (im === -1 ? "-" : im)) + "i";
+                    if (im === 0) return re;
+                    return re + (im > 0 ? "+" : "") + (im === 1 ? "" : (im === -1 ? "-" : im)) + "i";
+                } else { return math.round(res, 10); }
+            } catch(e) { throw new Error("Math ERROR"); }
+        }
+
+        mathLib.A = memoryVars.A; mathLib.B = memoryVars.B; mathLib.C = memoryVars.C;
+        mathLib.D = memoryVars.D; mathLib.E = memoryVars.E; mathLib.F = memoryVars.F;
+        mathLib.X = memoryVars.X; mathLib.Y = memoryVars.Y; mathLib.M = memoryVars.M;
+
+        evalStr = evalStr.replace(/\u200BΣx²\u200B/g, 'sum_x2()').replace(/\u200BΣx\u200B/g, 'sum_x()').replace(/\u200Bn\u200B/g, 'n_stat()')
+            .replace(/\u200Bx̄\u200B/g, 'x_bar()').replace(/\u200Bσx\u200B/g, 'sigma_x()').replace(/\u200Bsx\u200B/g, 's_x()')
+            .replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${ans})`).replace(/π/g, 'pi').replace(/⌟/g, '/')
+            .replace(/M\+/g, 'M').replace(/Ran#/g, 'ran()'); 
+        
+        function extractOperandLeft(str, idx) {
+            let start = idx - 1, parens = 0;
+            if (str[start] === ')') {
+                parens = 1; start--;
+                while (start >= 0 && parens > 0) {
+                    if (str[start] === ')') parens++; else if (str[start] === '(') parens--; start--;
+                }
+                start++;
+                let funcMatch = str.substring(0, start).match(/[a-zA-Z_]+$/);
+                if (funcMatch) start -= funcMatch[0].length;
+                start--; 
+            } else if (/[A-Z!M]/.test(str[start])) { start--; } else { while (start >= 0 && /[\d\.]/.test(str[start])) start--; }
+            if (str.substring(start + 1, idx).trim() === '') throw new Error("Syntax ERROR");
+            return { expr: str.substring(start + 1, idx), newStart: start + 1 };
+        }
+
+        function extractOperandRight(str, idx) {
+            let end = idx, parens = 0;
+            let funcMatch = str.substring(end).match(/^[a-zA-Z_]+/);
+            if (funcMatch) end += funcMatch[0].length;
+            if (str[end] === '(') {
+                parens = 1; end++;
+                while (end < str.length && parens > 0) { if (str[end] === '(') parens++; else if (str[end] === ')') parens--; end++; }
+            } else if (/[A-Z]/.test(str[end])) { end++; } 
+            else { if (str[end] === '-') end++; while (end < str.length && /[\d\.]/.test(str[end])) end++; }
+            if (str.substring(idx, end).trim() === '') throw new Error("Syntax ERROR");
+            return { expr: str.substring(idx, end), newEnd: end };
+        }
+
+        while (evalStr.indexOf('x√') !== -1) {
+            let idx = evalStr.indexOf('x√'); let left = extractOperandLeft(evalStr, idx); let right = extractOperandRight(evalStr, idx + 2); 
+            evalStr = evalStr.substring(0, left.newStart) + `xroot(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
+        }
+        while (evalStr.indexOf('!') !== -1) {
+            let idx = evalStr.indexOf('!'); let left = extractOperandLeft(evalStr, idx);
+            evalStr = evalStr.substring(0, left.newStart) + `fact(${left.expr})` + evalStr.substring(idx + 1);
+        }
+        while (evalStr.indexOf('\u200BP\u200B') !== -1) {
+            let idx = evalStr.indexOf('\u200BP\u200B'); let left = extractOperandLeft(evalStr, idx); let right = extractOperandRight(evalStr, idx + 3); 
+            evalStr = evalStr.substring(0, left.newStart) + `nPr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
+        }
+        while (evalStr.indexOf('\u200BC\u200B') !== -1) {
+            let idx = evalStr.indexOf('\u200BC\u200B'); let left = extractOperandLeft(evalStr, idx); let right = extractOperandRight(evalStr, idx + 3);
+            evalStr = evalStr.substring(0, left.newStart) + `nCr(${left.expr},${right.expr})` + evalStr.substring(right.newEnd);
+        }
+
+        evalStr = evalStr.replace(/%/g, '/100').replace(/sin⁻¹/g, 'asin').replace(/cos⁻¹/g, 'acos').replace(/tan⁻¹/g, 'atan')
+            .replace(/³√/g, 'cbrt').replace(/√/g, 'sqrt').replace(/10\^/g, '10**').replace(/e\^/g, 'e_num**')
+            .replace(/²/g, '**2').replace(/³/g, '**3').replace(/⁻¹/g, '**-1').replace(/\^/g, '**')
+            .replace(/E\((-?\d+)\)/g, '*10**$1').replace(/E(-?\d+)/g, '*10**$1');
+
+        evalStr = evalStr.replace(/(\d|\)|pi|%|A|B|C|D|E|F|X|Y|M)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|cbrt|fact|nPr|nCr|ran|pi|e_num|sum_x2|sum_x|n_stat|x_bar|sigma_x|s_x|A|B|C|D|E|F|X|Y|M)/g, '$1*');
+        evalStr = evalStr.replace(/(\)|pi|%|M)(?=\d)/g, '$1*');
+
+        let openBrackets = (evalStr.match(/\(/g) || []).length;
+        let closeBrackets = (evalStr.match(/\)/g) || []).length;
+        for(let i = 0; i < (openBrackets - closeBrackets); i++) { evalStr += ')'; }
+
+        let result = new Function('mathLib', `
+            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, cbrt, xroot, fact, nPr, nCr, ran, pi, e_num, sum_x2, sum_x, n_stat, x_bar, sigma_x, s_x, A, B, C, D, E, F, X, Y, M } = mathLib;
+            return ${evalStr};
+        `)(mathLib);
+
+        if (!isFinite(result) || isNaN(result)) throw new Error("Math ERROR");
+        return parseFloat(result.toPrecision(12));
+    }
+
+    function handleDynamicFmlaExe() {
+        const history = document.getElementById('history');
+        try {
+            if (calcState === 'FMLA_INPUT') {
+                let val; let varName = currentFmla.vars[fmlaInputIdx];
+                if (expr !== '') val = evaluateMathString(expr); else val = currentFmla.inputs[varName];
+                currentFmla.inputs[varName] = val; 
+                if(history) history.innerText = `${varName} = ${val}`;
+                fmlaInputIdx++; expr = '';
+                if (fmlaInputIdx >= currentFmla.vars.length) {
+                    fmlaOutputs = currentFmla.calc(currentFmla.inputs);
+                    fmlaOutputs.forEach(o => o.val = parseFloat(o.val.toPrecision(12)));
+                    fmlaOutputIdx = 0; calcState = 'FMLA_OUTPUT';
+                    ans = fmlaOutputs[0].val; isResultDisplayed = true;
+                    if(history) history.innerText = fmlaOutputs[0].label; 
+                    expr = fmlaOutputs[0].val.toString();
+                }
+                updateDisplay(); return;
+            } else if (calcState === 'FMLA_OUTPUT') {
+                fmlaOutputIdx++;
+                if (fmlaOutputIdx >= fmlaOutputs.length) {
+                    calcState = 'NORMAL'; if(history) history.innerText = ''; isResultDisplayed = true;
+                } else {
+                    ans = fmlaOutputs[fmlaOutputIdx].val; isResultDisplayed = true;
+                    if(history) history.innerText = fmlaOutputs[fmlaOutputIdx].label; 
+                    expr = fmlaOutputs[fmlaOutputIdx].val.toString();
+                }
+                updateDisplay(); return;
+            }
+        } catch (error) { calcState = 'NORMAL'; expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; updateDisplay(); }
+    }
+
+    function executeProgram(id) {
+        let progStr = userPrograms[id];
+        if (!progStr || progStr.trim() === '') {
+            calcState = 'NORMAL'; expr = ''; updateDisplay(); return;
+        }
+        let tokens = progStr.split(/(:|◢)/).filter(s => s !== '');
+        progSteps = [];
+        let currentText = "";
+        for (let i=0; i<tokens.length; i++) {
+            if (tokens[i] === ':') {
+                if (currentText) progSteps.push({ text: currentText, pause: false });
+                currentText = "";
+            } else if (tokens[i] === '◢') {
+                if (currentText) progSteps.push({ text: currentText, pause: true });
+                currentText = "";
+            } else { currentText += tokens[i]; }
+        }
+        if (currentText) progSteps.push({ text: currentText, pause: true });
+        
+        progStepIdx = 0;
+        runNextProgStep();
+    }
+
+    function runNextProgStep() {
+        const history = document.getElementById('history');
+        if (progStepIdx >= progSteps.length) {
+            calcState = 'NORMAL'; isResultDisplayed = true; updateDisplay(); return;
+        }
+        let step = progSteps[progStepIdx];
+        let text = step.text.trim();
+
+        try {
+            if (text.includes('=>')) {
+                let parts = text.split('=>');
+                let condExpr = parts[0].trim();
+                condExpr = condExpr.replace(/=/g, '===').replace(/≠/g, '!==').replace(/≥/g, '>=').replace(/≤/g, '<=');
+                let condVal = evaluateMathString(condExpr);
+                if (!condVal) { 
+                    progStepIdx++; runNextProgStep(); return; 
+                }
+                text = parts[1].trim();
+            }
+
+            if (text.startsWith('?→')) {
+                progPromptVar = text.substring(2).trim();
+                calcState = 'PROG_INPUT_VAR'; expr = '';
+                updateDisplay();
+            } else if (text.includes('→')) {
+                let parts = text.split('→');
+                let val = evaluateMathString(parts[0]);
+                let targetVar = parts[1].trim();
+                memoryVars[targetVar] = val; ans = val;
+                if (step.pause) {
+                    calcState = 'PROG_OUTPUT'; if(history) history.innerText = 'Disp'; expr = val.toString(); isResultDisplayed = true; updateDisplay();
+                } else { progStepIdx++; runNextProgStep(); }
+            } else {
+                let val = evaluateMathString(text); ans = val;
+                if (step.pause) {
+                    calcState = 'PROG_OUTPUT'; if(history) history.innerText = 'Disp'; expr = val.toString(); isResultDisplayed = true; updateDisplay();
+                } else { progStepIdx++; runNextProgStep(); }
+            }
+        } catch(e) {
+            calcState = 'NORMAL'; expr = e.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; updateDisplay();
+        }
+    }
+
+    function handleProgRunExe() {
+        try {
+            if (calcState === 'PROG_INPUT_VAR') {
+                let val = evaluateMathString(expr || memoryVars[progPromptVar].toString());
+                memoryVars[progPromptVar] = val; progStepIdx++; runNextProgStep();
+            } else if (calcState === 'PROG_OUTPUT') {
+                progStepIdx++; runNextProgStep();
+            }
+        } catch(e) {
+            calcState = 'NORMAL'; expr = e.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; updateDisplay();
+        }
+    }
+
+    function calculate() {
+        const history = document.getElementById('history');
+        if (calcState.startsWith('MODE_MENU') || calcState.startsWith('PRGM_MENU') || calcState.startsWith('PRGM_SYMBOL_MENU') || calcState.startsWith('PRGM_SELECT') || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') return;
+        if (calcState === 'FMLA_INPUT' || calcState === 'FMLA_OUTPUT') { handleDynamicFmlaExe(); return; }
+        if (calcState === 'PROG_INPUT_VAR' || calcState === 'PROG_OUTPUT') { handleProgRunExe(); return; }
+        if (calcState === 'PRGM_EDITING') return; 
+
+        if (!expr) return;
+
+        let fmlaMatch = expr.trim().match(/^FMLA\s*0?([1-9]|1[0-9]|2[0-3])$/i);
+        if (fmlaMatch) { startDynamicFmla(parseInt(fmlaMatch[1])); return; }
+
+        let progMatch = expr.trim().match(/^Prog\s*0?([1-4])$/i);
+        if (progMatch) { executeProgram(parseInt(progMatch[1])); return; }
+
+        if(history) history.innerText = expr;
+
+        try {
+            let result = evaluateMathString(expr);
+            calcHistory.push({ expression: expr, result: result.toString() });
+            historyIndex = calcHistory.length; 
+            expr = result.toString(); ans = result; isResultDisplayed = true; 
+            updateDisplay();
+        } catch (error) {
+            expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
+            updateDisplay();
+        }
+    }
 </script>
 
 </body>
