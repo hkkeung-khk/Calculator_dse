@@ -285,7 +285,7 @@
         font-size: clamp(28px, 9vw, 38px);
         color: #000;
         line-height: 1;
-        overflow-x: hidden; /* 隱藏滾動條但允許 JS 控制捲動 */
+        overflow-x: hidden; 
         overflow-y: hidden;
         white-space: nowrap;
         scroll-behavior: smooth;
@@ -756,6 +756,77 @@
     let isMagnifying = false;
     let lastMouseEvent = null;
 
+    function normalCDF(x) {
+        let z = x / Math.sqrt(2);
+        let t = 1 / (1 + 0.3275911 * Math.abs(z));
+        let a1 =  0.254829592; let a2 = -0.284496736; let a3 =  1.421413741;
+        let a4 = -1.453152027; let a5 =  1.061405429;
+        let erf = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-z * z);
+        return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
+    }
+
+    const FMLA_LIB = {
+        1: { name: "Quadratic Eq", vars: ['a', 'b', 'c'], inputs: {a:0, b:0, c:0}, calc: (v) => { 
+            let d = v.b*v.b - 4*v.a*v.c; 
+            if(d < 0) throw new Error("Math ERROR"); 
+            return [{label:"x1 =", val:(v.b - Math.sqrt(d))/(2*v.a)}, {label:"x2 =", val:(v.b + Math.sqrt(d))/(2*v.a)}] 
+        }},
+        2: { name: "Cosine Theorem", vars: ['b', 'c', 'A'], inputs: {b:0, c:0, A:0}, calc: (v) => [{label:"a =", val:Math.sqrt(v.b*v.b + v.c*v.c - 2*v.b*v.c*mathLib.cos(v.A))}] },
+        3: { name: "Herons Formula", vars: ['a', 'b', 'c'], inputs: {a:0, b:0, c:0}, calc: (v) => { 
+            let s = (v.a+v.b+v.c)/2; 
+            if (v.a + v.b <= v.c || v.a + v.c <= v.b || v.b + v.c <= v.a || v.a<=0 || v.b<=0 || v.c<=0) throw new Error("Math ERROR");
+            let ar = s*(s-v.a)*(s-v.b)*(s-v.c); 
+            if(ar < 0) throw new Error("Math ERROR"); 
+            return [{label:"Area =", val:Math.sqrt(ar)}] 
+        }},
+        4: { name: "Normal Prob P(x)", vars: ['x'], inputs: {x:0}, calc: (v) => [{label:"P =", val: normalCDF(v.x)}] },
+        5: { name: "Normal Prob Q(x)", vars: ['x'], inputs: {x:0}, calc: (v) => [{label:"Q =", val: normalCDF(v.x) - 0.5}] },
+        6: { name: "Coulombs Law", vars: ['q1', 'q2', 'r'], inputs: {q1:0, q2:0, r:0}, calc: (v) => [{label:"F =", val: (8.987551787e9 * v.q1 * v.q2) / (v.r*v.r)}] },
+        7: { name: "Resistance", vars: ['p', 'l', 'S'], inputs: {p:0, l:0, S:0}, calc: (v) => [{label:"R =", val: v.p * v.l / v.S}] },
+        8: { name: "Magnetic Force", vars: ['q', 'v', 'B', 'θ'], inputs: {q:0, v:0, B:0, θ:0}, calc: (v) => [{label:"F =", val: v.q * v.v * v.B * mathLib.sin(v.θ)}] },
+        9: { name: "RC Terminal V", vars: ['V0', 'R', 'C', 't'], inputs: {V0:0, R:0, C:0, t:0}, calc: (v) => [{label:"V =", val: v.V0 * Math.exp(-v.t / (v.R * v.C))}] },
+        10: { name: "Voltage Gain", vars: ['V1', 'V2'], inputs: {V1:0, V2:0}, calc: (v) => [{label:"Gain =", val: 20 * Math.log10(v.V2 / v.V1)}] },
+        11: { name: "LRC Series Z", vars: ['R', 'f', 'L', 'C'], inputs: {R:0, f:0, L:0, C:0}, calc: (v) => { 
+            if(v.f<=0||v.C<=0) throw new Error("Math ERROR"); 
+            let w = 2 * Math.PI * v.f; 
+            return [{label:"Z =", val: Math.sqrt(v.R*v.R + Math.pow(w*v.L - 1/(w*v.C), 2))}] 
+        }},
+        12: { name: "LRC Parallel Z", vars: ['R', 'f', 'L', 'C'], inputs: {R:0, f:0, L:0, C:0}, calc: (v) => { 
+            if(v.f<=0||v.L<=0||v.R<=0) throw new Error("Math ERROR"); 
+            let w = 2 * Math.PI * v.f; 
+            return [{label:"Z =", val: 1 / Math.sqrt(Math.pow(1/v.R, 2) + Math.pow(w*v.C - 1/(w*v.L), 2))}] 
+        }},
+        13: { name: "Osc Freq", vars: ['L', 'C'], inputs: {L:0, C:0}, calc: (v) => { 
+            if(v.L*v.C<=0) throw new Error("Math ERROR"); 
+            return [{label:"f =", val: 1 / (2 * Math.PI * Math.sqrt(v.L * v.C))}] 
+        }},
+        14: { name: "Drop Distance", vars: ['g', 't'], inputs: {g:9.8, t:0}, calc: (v) => [{label:"s =", val: 0.5 * v.g * v.t*v.t}] },
+        15: { name: "Simple Pendulum", vars: ['L', 'g'], inputs: {L:0, g:9.8}, calc: (v) => { 
+            if(v.g===0) throw new Error("Math ERROR"); 
+            return [{label:"T =", val: 2 * Math.PI * Math.sqrt(v.L / v.g)}] 
+        }},
+        16: { name: "Spring Pendulum", vars: ['m', 'k'], inputs: {m:0, k:0}, calc: (v) => { 
+            if(v.k===0) throw new Error("Math ERROR"); 
+            return [{label:"T =", val: 2 * Math.PI * Math.sqrt(v.m / v.k)}] 
+        }},
+        17: { name: "Doppler Effect", vars: ['f', 'v', 'v1', 'v2'], inputs: {f:0, v:340, v1:0, v2:0}, calc: (v) => { 
+            if(v.v===v.v2) throw new Error("Math ERROR"); 
+            return [{label:"f' =", val: v.f * ((v.v + v.v1) / (v.v - v.v2))}] 
+        }},
+        18: { name: "Ideal Gas", vars: ['n', 'T', 'V'], inputs: {n:0, T:0, V:0}, calc: (v) => { 
+            if(v.V===0) throw new Error("Math ERROR"); 
+            return [{label:"P =", val: (v.n * 8.3144621 * v.T) / v.V}] 
+        }},
+        19: { name: "Centrifugal", vars: ['m', 'v', 'r'], inputs: {m:0, v:0, r:0}, calc: (v) => { 
+            if(v.r===0) throw new Error("Math ERROR"); 
+            return [{label:"F =", val: (v.m * v.v*v.v) / v.r}] 
+        }},
+        20: { name: "Elastic Energy", vars: ['k', 'x'], inputs: {k:0, x:0}, calc: (v) => [{label:"E =", val: 0.5 * v.k * v.x*v.x}] },
+        21: { name: "Bernoulli", vars: ['P', 'p', 'v', 'h'], inputs: {P:0, p:0, v:0, h:0}, calc: (v) => [{label:"Const =", val: v.P + 0.5 * v.p * v.v*v.v + v.p * 9.80665 * v.h}] },
+        22: { name: "Stadia (1)", vars: ['S', 'θ'], inputs: {S:0, θ:0}, calc: (v) => [{label:"D =", val: v.S * Math.pow(mathLib.cos(v.θ), 2)}] },
+        23: { name: "Stadia (2)", vars: ['S', 'θ'], inputs: {S:0, θ:0}, calc: (v) => [{label:"H =", val: 0.5 * v.S * mathLib.sin(2 * v.θ)}] }
+    };
+
     // --- 初始化及事件監聽 ---
     document.addEventListener('DOMContentLoaded', () => {
         const calc = document.getElementById('main-calc');
@@ -976,7 +1047,6 @@
 
         if (display) {
             display.innerHTML = displayText + '<span class="cursor">_</span>';
-            // 自動滾動到底部以保持輸入可見 (除非正在瀏覽模式)
             if (!['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN'].includes(calcState)) {
                 display.scrollLeft = display.scrollWidth;
             }
@@ -1331,7 +1401,6 @@
             updateDisplay(); return;
         }
 
-        // 橫向滑動查看長程式碼
         if (dir === 'LEFT') {
             const displayEl = document.getElementById('display');
             if (displayEl) displayEl.scrollLeft -= 120;
@@ -1343,7 +1412,6 @@
             return;
         }
 
-        // 歷史紀錄上下翻看
         let direction = dir === 'UP' ? -1 : 1;
         if (calcHistory.length === 0 || calcState !== 'NORMAL') return;
 
@@ -1666,7 +1734,7 @@
 
     function calculate() {
         const history = document.getElementById('history');
-        if (calcState.startsWith('MODE_MENU') || calcState.startsWith('PRGM_MENU') || calcState.startsWith('PRGM_SYMBOL_MENU') || calcState.startsWith('PRGM_SELECT') || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') return;
+        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'SD_SUM_MENU', 'SD_VAR_MENU'].includes(calcState)) return;
         if (calcState === 'FMLA_INPUT' || calcState === 'FMLA_OUTPUT') { handleDynamicFmlaExe(); return; }
         if (calcState === 'PROG_INPUT_VAR' || calcState === 'PROG_OUTPUT') { handleProgRunExe(); return; }
         if (calcState === 'PRGM_EDITING') return; 
