@@ -26,6 +26,7 @@
         -webkit-tap-highlight-color: transparent;
         touch-action: manipulation;
     }
+    button, .dpad div[onclick] { -webkit-user-select: none; user-select: none; }
 
     body {
         margin: 0;
@@ -78,6 +79,19 @@
         transition: all 0.3s ease;
     }
     .mag-btn:hover { background-color: #e0e0e0; transform: scale(1.05); }
+    .mag-btn.highlight-active { background-color: #ffeb3b; border-color: #f9a825; color: #222; }
+    /* 螢光只沿按鍵外框顯示，保留灰色按鍵表面和文字對比 */
+    .key-highlight {
+        outline: 2px solid rgba(255, 193, 7, 0.95) !important;
+        outline-offset: 2px;
+        animation: keyGlow 3s ease-out both;
+        z-index: 5;
+    }
+    @keyframes keyGlow {
+        0% { outline-color: rgba(255, 235, 59, 1); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
+        18% { outline-color: rgba(255, 193, 7, 1); box-shadow: 0 0 0 3px rgba(255, 235, 59, 0.78), 0 0 10px 2px rgba(255, 193, 7, 0.55); }
+        100% { outline-color: rgba(255, 193, 7, 0); box-shadow: 0 0 0 3px rgba(255, 235, 59, 0), 0 0 10px 2px rgba(255, 193, 7, 0); }
+    }
     .mag-btn.active { background-color: #4CAF50; border-color: #388E3C; color: white; box-shadow: inset 0 3px 6px rgba(0,0,0,0.2); }
 
     .record-panel-wrapper {
@@ -294,7 +308,7 @@
     /* === 專用排版 === */
     .mode-menu-view .screen-top { display: none !important; }
     .mode-menu-view .screen-bottom {
-        font-size: clamp(15px, 4.5vw, 20px) !important;
+        font-size: clamp(17px, 5.2vw, 23px) !important;
         text-align: center !important;
         padding-top: 8px !important;
         padding-bottom: 5px !important;
@@ -491,6 +505,7 @@
 <div class="top-controls">
     <button class="panel-toggle-btn" id="toggle-panel-btn" onclick="toggleRecordPanel()">📜 展開記錄</button>
     <button class="mag-btn" id="mag-btn" onclick="toggleMagnifier()" title="開啟/關閉放大鏡">🔍</button>
+    <button class="mag-btn" id="highlight-btn" onclick="toggleHighlight()" title="開啟/關閉螢光按鍵提示">✨</button>
 </div>
 
 <div class="magnifier-lens" id="lens"></div>
@@ -654,7 +669,7 @@
                     <button class="btn-top" onclick="handleVarKey('Y', () => insertStr(')'))">)</button>
                 </div>
                 <div class="key-wrapper">
-                    <div class="labels"><span class="lbl-shift lbl-left">;</span><span class="lbl-alpha lbl-right">M-</span></div>
+                    <div class="labels"><span class="lbl-shift lbl-left">；</span><span class="lbl-alpha lbl-right">M-</span></div>
                     <button class="btn-top" onclick="handleCommaOrSemicolon()">,</button>
                 </div>
                 <div class="key-wrapper">
@@ -691,8 +706,8 @@
                     <button class="btn-num" onclick="handleNum('2')">2</button>
                 </div>
                 <div class="key-wrapper"><button class="btn-num" onclick="handleNum('3')">3</button></div>
-                <div class="key-wrapper"><button class="btn-func" onclick="insertStr('+')">+</button></div>
-                <div class="key-wrapper"><button class="btn-func" onclick="insertStr('-')">-</button></div>
+                <div class="key-wrapper"><button class="btn-func" onclick="handlePlusKey()">+</button></div>
+                <div class="key-wrapper"><button class="btn-func" onclick="handleMinusKey()">-</button></div>
 
                 <div class="key-wrapper"><button class="btn-num" onclick="handleNum('0')">0</button></div>
                 <div class="key-wrapper">
@@ -722,7 +737,11 @@
     let cmplxMode = false; 
     let baseMode = false;
     let currentBase = 'DEC'; 
-    let sdData = [];
+    let sdData = []; // flattened observations, repeated by frequency for statistics
+    let sdEntries = []; // one record per M+ press: { x, frequency }
+    let sdReplayHistory = []; // reverse view order: FreqN, XN, FreqN-1, XN-1 ...
+    let sdReplayIndex = 0;
+    let sdReplayActive = false;
 
     // 內建強大的 Program 1 預載聯立方程式腳本
     let userPrograms = { 
@@ -753,6 +772,13 @@
     let isMagnifying = false;
     let lastMouseEvent = null;
     let fmlaBrowseIdx = 1;
+    let highlightMode = false;
+    let highlightTimer = null;
+    let programModes = { 1: 'COMP', 2: 'COMP', 3: 'COMP', 4: 'COMP' };
+    let programBrowseId = 1;
+    let programPreviewPage = 0;
+    let programPreviousMode = null;
+    let programEditPreviousMode = null;
 
     function normalCDF(x) {
         let z = x / Math.sqrt(2);
@@ -763,7 +789,7 @@
         return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf);
     }
     const FMLA_LIB = {
-        1: { name: "Quadratic Eq", vars: ['a', 'b', 'c'], inputs: {a:0, b:0, c:0}, calc: (v) => { 
+        1: { name: "QuadEquation", vars: ['a', 'b', 'c'], inputs: {a:0, b:0, c:0}, calc: (v) => { 
             let d = v.b*v.b - 4*v.a*v.c; 
             if(d < 0) throw new Error("Math ERROR"); 
             return [{label:"x1 =", val:(v.b - Math.sqrt(d))/(2*v.a)}, {label:"x2 =", val:(v.b + Math.sqrt(d))/(2*v.a)}] 
@@ -835,7 +861,16 @@
             }
             let target = e.target.closest('button, .dpad div[onclick]');
             if (!target) return;
-            
+
+            if (highlightMode && e.isTrusted) {
+                target.classList.remove('key-highlight');
+                void target.offsetWidth;
+                target.classList.add('key-highlight');
+                clearTimeout(highlightTimer);
+                highlightTimer = setTimeout(() => target.classList.remove('key-highlight'), 3000);
+                if (isMagnifying) updateMagnifier();
+            }
+
             if (isRecording && e.isTrusted) {
                 let actionName = target.innerText.trim();
                 if (!actionName) {
@@ -862,7 +897,7 @@
                 else if (actionName === '1') actionName = (isShift && sdMode) ? 'S-SUM' : '1';
                 else if (actionName === '2') actionName = (isShift && sdMode) ? 'S-VAR' : '2';
                 else if (actionName === 'ENG') {
-                    if (cmplxMode) actionName = 'i';
+                    if (cmplxMode && isShift) actionName = 'i';
                     else if (isShift) actionName = '←';
                     else actionName = 'ENG';
                 }
@@ -877,10 +912,15 @@
         }, true);
     });
 
-    document.addEventListener('mousemove', (e) => {
+    // Pointer events cover mouse, pen and touch. Neither visual aid disables the other.
+    document.addEventListener('pointermove', (e) => {
         lastMouseEvent = e;
         if (isMagnifying) updateMagnifier();
-    });
+    }, { passive: true });
+    document.addEventListener('pointerdown', (e) => {
+        lastMouseEvent = e;
+        if (isMagnifying) updateMagnifier();
+    }, { passive: true });
 
     function toggleRecordPanel() {
         const wrapper = document.getElementById('record-wrapper');
@@ -968,6 +1008,12 @@
         document.getElementById('record-btn').disabled = false;
     }
 
+    function toggleHighlight() {
+        highlightMode = !highlightMode;
+        const button = document.getElementById('highlight-btn');
+        if (button) button.classList.toggle('highlight-active', highlightMode);
+    }
+
     function toggleMagnifier() {
         isMagnifying = !isMagnifying;
         const lens = document.getElementById('lens');
@@ -989,30 +1035,50 @@
         if (!lens.hasChildNodes()) {
             const clone = calc.cloneNode(true);
             clone.removeAttribute('id');
+            // Remove descendant IDs: cloned IDs otherwise shadow the real calculator's IDs.
+            clone.querySelectorAll('[id]').forEach(node => node.removeAttribute('id'));
             clone.style.width = calc.offsetWidth + 'px';
             clone.style.height = calc.offsetHeight + 'px';
             lens.appendChild(clone);
         }
 
-        const calcClone = lens.firstChild;
-        const origDisplay = document.getElementById('display');
+        const calcClone = lens.firstElementChild;
+        const origDisplay = calc.querySelector('.screen-bottom');
         const cloneDisplay = calcClone.querySelector('.screen-bottom');
         if (cloneDisplay && origDisplay) cloneDisplay.innerHTML = origDisplay.innerHTML;
 
-        const origHistory = document.getElementById('history');
+        const origHistory = calc.querySelector('.screen-top');
         const cloneHistory = calcClone.querySelector('.screen-top');
         if (cloneHistory && origHistory) cloneHistory.innerHTML = origHistory.innerHTML;
 
-        const origInd = document.querySelector('.indicators');
+        const origInd = calc.querySelector('.indicators');
         const cloneInd = calcClone.querySelector('.indicators');
-        if (cloneInd && origInd) cloneInd.innerHTML = origInd.innerHTML;
+        if (cloneInd && origInd) {
+            const sourceCells = origInd.children;
+            const mirrorCells = cloneInd.children;
+            for (let i = 0; i < sourceCells.length && i < mirrorCells.length; i++) {
+                // Copy only the indicator text; do not reintroduce source element IDs.
+                mirrorCells[i].textContent = sourceCells[i].textContent;
+            }
+        }
 
-        const lensSize = 160; 
+        // Mirror the glow / simulated key state so it is visible inside the lens too.
+        const sourceKeys = calc.querySelectorAll('button, .dpad div[onclick]');
+        const mirrorKeys = calcClone.querySelectorAll('button, .dpad div[onclick]');
+        sourceKeys.forEach((node, index) => {
+            const mirror = mirrorKeys[index];
+            if (mirror) {
+                mirror.className = node.className;
+                mirror.style.cssText = node.style.cssText;
+            }
+        });
+
+        const lensSize = 160;
         lens.style.left = (e.clientX - lensSize / 2) + 'px';
         lens.style.top = (e.clientY - lensSize / 2) + 'px';
         const relX = e.clientX - rect.left;
         const relY = e.clientY - rect.top;
-        const zoom = 2; 
+        const zoom = 2;
 
         calcClone.style.position = 'absolute';
         calcClone.style.transform = `scale(${zoom})`;
@@ -1020,7 +1086,7 @@
         calcClone.style.left = (lensSize / 2 - relX * zoom) + 'px';
         calcClone.style.top = (lensSize / 2 - relY * zoom) + 'px';
         calcClone.style.margin = '0';
-        calcClone.style.boxShadow = 'none'; 
+        calcClone.style.boxShadow = 'none';
     }
     function updateDisplay() {
         const display = document.getElementById('display');
@@ -1034,16 +1100,31 @@
         const screenContent = document.querySelector('.screen-content');
 
         let displayText = expr;
-        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'FMLA_BROWSE', 'PRGM_MODE_SELECT'].includes(calcState)) {
+        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SYMBOL_MENU_4', 'PRGM_SYMBOL_MENU_5', 'PRGM_SYMBOL_MENU_6', 'PRGM_SYMBOL_MENU_7', 'PRGM_SYMBOL_MENU_8', 'PRGM_SYMBOL_MENU_9', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'FMLA_BROWSE', 'PRGM_MODE_SELECT', 'PRGM_RUN_PREVIEW'].includes(calcState)) {
             screenContent.classList.add('mode-menu-view');
             if (calcState === 'MODE_MENU_1') displayText = '1:COMP 2:CMPLX 3:BASE';
             else if (calcState === 'MODE_MENU_2') displayText = '4:SD  5:REG  6:PRGM';
             else if (calcState === 'PRGM_MENU') displayText = '1:EDIT     2:RUN';
             else if (calcState === 'PRGM_SYMBOL_MENU_1') displayText = '1:?  2:→  3::  4:◢';
             else if (calcState === 'PRGM_SYMBOL_MENU_2') displayText = '1:=> 2:=  3:≠  4:>';
-            else if (calcState === 'PRGM_SYMBOL_MENU_3') displayText = '1:<  2:≥  3:≤';
+            else if (calcState === 'PRGM_SYMBOL_MENU_3') displayText = '1:>  2:<  3:≥  4:≤';
+            else if (calcState === 'PRGM_SYMBOL_MENU_4') displayText = '1:Goto  2:Lbl';
+            else if (calcState === 'PRGM_SYMBOL_MENU_5') displayText = '1:While  2:WhileEnd';
+            else if (calcState === 'PRGM_SYMBOL_MENU_6') displayText = '1:Next  2:Break';
+            else if (calcState === 'PRGM_SYMBOL_MENU_7') displayText = '1:For  2:To  3:Step';
+            else if (calcState === 'PRGM_SYMBOL_MENU_8') displayText = '1:Else  2:IfEnd';
+            else if (calcState === 'PRGM_SYMBOL_MENU_9') displayText = '1:If  2:Then';
             else if (calcState === 'PRGM_SELECT_EDIT' || calcState === 'PRGM_SELECT_RUN') displayText = 'Prog No?';
             else if (calcState === 'PRGM_MODE_SELECT') displayText = '1:COMP 2:CMPLX';
+            else if (calcState === 'PRGM_RUN_PREVIEW') {
+                const code = userPrograms[programBrowseId] || '(Empty program)';
+                const pageSize = 18;
+                const pages = Math.max(1, Math.ceil(code.length / pageSize));
+                if (programPreviewPage >= pages) programPreviewPage = pages - 1;
+                if (programPreviewPage < 0) programPreviewPage = 0;
+                const chunk = code.slice(programPreviewPage * pageSize, (programPreviewPage + 1) * pageSize);
+                displayText = `Prog ${programBrowseId} ${programModes[programBrowseId] || 'COMP'}  ${programPreviewPage + 1}/${pages}\n${chunk}`;
+            }
             else if (calcState === 'FMLA_BROWSE') {
                 let fmlaNum = fmlaBrowseIdx < 10 ? '0' + fmlaBrowseIdx : fmlaBrowseIdx;
                 displayText = `${fmlaNum}: ${FMLA_LIB[fmlaBrowseIdx].name}`;
@@ -1082,7 +1163,7 @@
 
         if (display) {
             display.innerHTML = displayText + '<span class="cursor">_</span>';
-            if (!['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'FMLA_BROWSE'].includes(calcState)) {
+            if (!['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SYMBOL_MENU_4', 'PRGM_SYMBOL_MENU_5', 'PRGM_SYMBOL_MENU_6', 'PRGM_SYMBOL_MENU_7', 'PRGM_SYMBOL_MENU_8', 'PRGM_SYMBOL_MENU_9', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'FMLA_BROWSE', 'PRGM_MODE_SELECT', 'PRGM_RUN_PREVIEW'].includes(calcState)) {
                 if (isResultDisplayed) {
                     display.scrollLeft = 0;
                 } else {
@@ -1132,19 +1213,39 @@
     }
 
     function handleEngOrI() {
-        if (cmplxMode) {
+        if (cmplxMode && isShift) {
             insertStr('i'); isShift = false; updateDisplay();
         } else {
-            if (isShift) { insertStr('←'); isShift = false; updateDisplay(); } 
+            if (isShift) { insertStr('←'); isShift = false; updateDisplay(); }
             else { insertStr('ENG'); }
+        }
+    }
+
+    function enterProgramEdit(id, sourceText = '') {
+        editProgId = id;
+        programEditPreviousMode = { cmplxMode, sdMode, baseMode };
+        cmplxMode = (programModes[id] || 'COMP') === 'CMPLX';
+        sdMode = false; baseMode = false;
+        expr = sourceText;
+        calcState = 'PRGM_EDITING';
+        isResultDisplayed = false;
+    }
+
+    function leaveProgramEdit() {
+        if (programEditPreviousMode) {
+            cmplxMode = programEditPreviousMode.cmplxMode;
+            sdMode = programEditPreviousMode.sdMode;
+            baseMode = programEditPreviousMode.baseMode;
+            programEditPreviousMode = null;
         }
     }
 
     function handleProgBtn() {
         const history = document.getElementById('history');
         if (isShift) {
-            if (calcState === 'PRGM_EDITING') {
+            if (calcState === 'PRGM_EDITING' || calcState.startsWith('PRGM_SYMBOL_MENU')) {
                 userPrograms[editProgId] = expr;
+                leaveProgramEdit();
                 calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
             } else if (calcState.startsWith('PRGM_') || calcState.startsWith('MODE_')) {
                 calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
@@ -1156,7 +1257,9 @@
                 calcState = 'PRGM_SYMBOL_MENU_1';
                 updateDisplay();
             } else if (calcState.startsWith('PRGM_SYMBOL_MENU')) {
-                calcState = 'PRGM_EDITING'; 
+                let page = parseInt(calcState.split('_')[3], 10) || 1;
+                page = page >= 9 ? 1 : page + 1;
+                calcState = 'PRGM_SYMBOL_MENU_' + page;
                 updateDisplay();
             } else {
                 insertCommand('Prog ');
@@ -1171,20 +1274,34 @@
         }
         try {
             if (sdMode) {
-                let targetExpr = expr || ans.toString();
+                const targetExpr = expr || (isResultDisplayed ? '' : ans.toString());
+                if (!targetExpr) throw new Error("Syntax ERROR");
                 let val, freq = 1;
                 if (targetExpr.includes(';')) {
-                    let parts = targetExpr.split(';');
-                    if (parts.length !== 2 || parts[0] === '' || parts[1] === '') throw new Error("Syntax ERROR");
-                    val = evaluateMathString(parts[0]);
-                    freq = Math.round(evaluateMathString(parts[1]));
-                } else { val = evaluateMathString(targetExpr); }
-                
-                if (freq < 1) throw new Error("Math ERROR");
-                for (let i = 0; i < freq; i++) sdData.push(val);
-                
-                calcState = 'NORMAL'; if(history) history.innerText = 'n =';
-                expr = sdData.length.toString(); ans = sdData.length; isResultDisplayed = true;
+                    const parts = targetExpr.split(';');
+                    if (parts.length !== 2 || parts[0].trim() === '' || parts[1].trim() === '') throw new Error("Syntax ERROR");
+                    val = evaluateMathString(parts[0].trim());
+                    freq = evaluateMathString(parts[1].trim());
+                    if (!Number.isInteger(freq)) throw new Error("Math ERROR");
+                } else {
+                    val = evaluateMathString(targetExpr);
+                }
+                if (!Number.isFinite(Number(val)) || !Number.isInteger(freq) || freq < 1 || freq > 100000) throw new Error("Math ERROR");
+
+                const lineNo = sdEntries.length + 1;
+                sdEntries.push({ x: Number(val), frequency: freq });
+                for (let i = 0; i < freq; i++) sdData.push(Number(val));
+                // Replay order is newest frequency first, then its x-value.
+                sdReplayHistory.push({ label: `X${lineNo}`, value: Number(val) });
+                sdReplayHistory.push({ label: `Freq${lineNo}`, value: freq });
+                sdReplayIndex = sdReplayHistory.length;
+                sdReplayActive = false;
+
+                calcState = 'NORMAL';
+                if (history) history.innerText = 'Line=';
+                expr = lineNo.toString();
+                ans = lineNo;
+                isResultDisplayed = true;
             } else {
                 let val = expr ? evaluateMathString(expr) : ans;
                 memoryVars.M += val; calcState = 'NORMAL';
@@ -1214,15 +1331,42 @@
         }
     }
 
+    function baseRange(radixName = currentBase) {
+        // fx-50FH family uses 32-bit signed DEC/HEX/BIN and a 30-bit signed OCT range.
+        return radixName === 'OCT' ? { min: -536870912, max: 536870911 } : { min: -2147483648, max: 2147483647 };
+    }
+
+    function formatBaseValue(value, radixName = currentBase) {
+        const n = Math.trunc(Number(value));
+        const range = baseRange(radixName);
+        if (!Number.isFinite(n) || n < range.min || n > range.max) throw new Error('Math ERROR');
+        if (radixName === 'DEC') return String(n);
+        if (radixName === 'HEX') {
+            const unsigned = n < 0 ? n + 4294967296 : n;
+            return unsigned.toString(16).toUpperCase().padStart(n < 0 ? 8 : 1, '0');
+        }
+        if (radixName === 'BIN') {
+            const unsigned = n < 0 ? n + 4294967296 : n;
+            return unsigned.toString(2).padStart(n < 0 ? 32 : 1, '0');
+        }
+        if (radixName === 'OCT') {
+            const unsigned = n < 0 ? n + 1073741824 : n;
+            return unsigned.toString(8).padStart(n < 0 ? 10 : 1, '0');
+        }
+        return String(n);
+    }
+
     function switchBase(newBase) {
+        // Evaluate pending digits using the OLD radix before changing the radix.
+        const currentError = ['Math ERROR', 'Syntax ERROR'].includes(expr);
+        if (baseMode && expr && !isResultDisplayed && !currentError) {
+            try { ans = Number(evaluateMathString(expr)); isResultDisplayed = true; }
+            catch (_) { /* leave the typed expression intact if it is incomplete */ }
+        }
         currentBase = newBase;
-        if (isResultDisplayed && ans !== undefined) {
-            let res = Math.trunc(ans);
-            if (res < 0) res = (res >>> 0); 
-            if (newBase === 'HEX') expr = res.toString(16).toUpperCase();
-            else if (newBase === 'BIN') expr = res.toString(2);
-            else if (newBase === 'OCT') expr = res.toString(8);
-            else expr = Math.trunc(ans).toString(10);
+        if (isResultDisplayed && ans !== undefined && !currentError) {
+            try { expr = formatBaseValue(ans, newBase); }
+            catch (_) { expr = 'Math ERROR'; }
         }
         updateDisplay();
     }
@@ -1271,7 +1415,7 @@
             } else if (numStr === '3') {
                 sdMode = false; cmplxMode = false; baseMode = true; currentBase = 'DEC'; calcState = 'NORMAL'; expr = '0'; if(history) history.innerText = ''; isResultDisplayed = true; ans = 0;
             } else if (numStr === '4') {
-                sdMode = true; cmplxMode = false; baseMode = false; sdData = []; calcState = 'NORMAL'; expr = ''; if(history) history.innerText = '';
+                sdMode = true; cmplxMode = false; baseMode = false; sdData = []; sdEntries = []; sdReplayHistory = []; sdReplayIndex = 0; sdReplayActive = false; calcState = 'NORMAL'; expr = ''; ans = 0; isResultDisplayed = false; if(history) history.innerText = '';
             } else if (numStr === '6') {
                 calcState = 'PRGM_MENU'; expr = ''; updateDisplay(); return;
             }
@@ -1290,8 +1434,7 @@
                 if (prog === '') {
                     calcState = 'PRGM_MODE_SELECT';
                 } else {
-                    expr = prog;
-                    calcState = 'PRGM_EDITING';
+                    enterProgramEdit(editProgId, prog);
                 }
             }
             updateDisplay(); return;
@@ -1299,14 +1442,18 @@
 
         if (calcState === 'PRGM_MODE_SELECT') {
             if (numStr === '1' || numStr === '2') {
-                expr = '';
-                calcState = 'PRGM_EDITING';
+                programModes[editProgId] = numStr === '2' ? 'CMPLX' : 'COMP';
+                enterProgramEdit(editProgId, '');
             }
             updateDisplay(); return;
         }
 
         if (calcState === 'PRGM_SELECT_RUN') {
-            if (['1','2','3','4'].includes(numStr)) executeProgram(parseInt(numStr));
+            if (['1','2','3','4'].includes(numStr)) {
+                programBrowseId = parseInt(numStr, 10);
+                programPreviewPage = 0;
+                calcState = 'PRGM_RUN_PREVIEW';
+            }
             updateDisplay(); return;
         }
 
@@ -1319,8 +1466,20 @@
                 if (numStr === '1') symbol = '=>'; else if (numStr === '2') symbol = '=';
                 else if (numStr === '3') symbol = '≠'; else if (numStr === '4') symbol = '>';
             } else if (calcState === 'PRGM_SYMBOL_MENU_3') {
-                if (numStr === '1') symbol = '<'; else if (numStr === '2') symbol = '≥';
-                else if (numStr === '3') symbol = '≤';
+                if (numStr === '1') symbol = '>'; else if (numStr === '2') symbol = '<';
+                else if (numStr === '3') symbol = '≥'; else if (numStr === '4') symbol = '≤';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_4') {
+                if (numStr === '1') symbol = 'Goto '; else if (numStr === '2') symbol = 'Lbl ';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_5') {
+                if (numStr === '1') symbol = 'While '; else if (numStr === '2') symbol = 'WhileEnd';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_6') {
+                if (numStr === '1') symbol = 'Next'; else if (numStr === '2') symbol = 'Break';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_7') {
+                if (numStr === '1') symbol = 'For '; else if (numStr === '2') symbol = ' To '; else if (numStr === '3') symbol = ' Step ';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_8') {
+                if (numStr === '1') symbol = 'Else'; else if (numStr === '2') symbol = 'IfEnd';
+            } else if (calcState === 'PRGM_SYMBOL_MENU_9') {
+                if (numStr === '1') symbol = 'If '; else if (numStr === '2') symbol = 'Then ';
             }
             if (symbol) {
                 expr += symbol;
@@ -1360,6 +1519,7 @@
 
     function prepareNewInput(str = null) {
         const history = document.getElementById('history');
+        if (sdMode) sdReplayActive = false;
         if (expr === 'Syntax ERROR' || expr === 'Math ERROR') { expr = ''; if(history) history.innerText = ''; }
 
         if (calcState === 'FMLA_OUTPUT' || calcState === 'PROG_OUTPUT' || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU') {
@@ -1369,12 +1529,8 @@
         if (isResultDisplayed) {
             isResultDisplayed = false; if(history) history.innerText = '';
             if (str && ['+', '-', '×', '÷', '²', '³', '⁻¹', '^(', '°', '⌟', 'E', '%', '!', '\u200BP\u200B', '\u200BC\u200B', 'x√(', ';', '→', ':', '◢', '=>', '=', '≠', '>', '<', '≥', '≤'].includes(str)) {
-                if (baseMode) {
-                    if (currentBase === 'HEX') expr = (ans>>>0).toString(16).toUpperCase();
-                    else if (currentBase === 'BIN') expr = (ans>>>0).toString(2);
-                    else if (currentBase === 'OCT') expr = (ans>>>0).toString(8);
-                    else expr = Math.trunc(ans).toString(10);
-                } else { expr = 'Ans'; }
+                if (baseMode) expr = formatBaseValue(ans, currentBase);
+                else { expr = 'Ans'; }
             } else { expr = ''; }
         }
 
@@ -1443,6 +1599,31 @@
     }
 
     function navigateHistory(dir) {
+        if (sdMode && sdReplayHistory.length && (dir === 'UP' || dir === 'DOWN')) {
+            const history = document.getElementById('history');
+            if (!sdReplayActive) {
+                sdReplayActive = true;
+                sdReplayIndex = sdReplayHistory.length;
+            }
+            if (dir === 'UP') sdReplayIndex = Math.max(0, sdReplayIndex - 1);
+            else sdReplayIndex = Math.min(sdReplayHistory.length, sdReplayIndex + 1);
+
+            if (sdReplayIndex < sdReplayHistory.length) {
+                const row = sdReplayHistory[sdReplayIndex];
+                if (history) history.innerText = row.label + '=';
+                expr = String(row.value);
+                ans = row.value;
+                isResultDisplayed = true;
+            } else {
+                if (history) history.innerText = 'Line=';
+                expr = String(sdEntries.length);
+                ans = sdEntries.length;
+                isResultDisplayed = true;
+            }
+            updateDisplay();
+            return;
+        }
+
         if (calcState.startsWith('MODE_MENU')) {
             if (dir === 'RIGHT' || dir === 'DOWN') calcState = calcState === 'MODE_MENU_1' ? 'MODE_MENU_2' : 'MODE_MENU_1';
             else if (dir === 'LEFT' || dir === 'UP') calcState = calcState === 'MODE_MENU_2' ? 'MODE_MENU_1' : 'MODE_MENU_2';
@@ -1450,10 +1631,16 @@
         }
 
         if (calcState.startsWith('PRGM_SYMBOL_MENU')) {
-            let page = parseInt(calcState.split('_')[3]);
-            if (dir === 'RIGHT' || dir === 'DOWN') page = page === 3 ? 1 : page + 1;
-            else if (dir === 'LEFT' || dir === 'UP') page = page === 1 ? 3 : page - 1;
+            let page = parseInt(calcState.split('_')[3], 10) || 1;
+            if (dir === 'RIGHT' || dir === 'DOWN') page = page >= 9 ? 1 : page + 1;
+            else if (dir === 'LEFT' || dir === 'UP') page = page <= 1 ? 9 : page - 1;
             calcState = 'PRGM_SYMBOL_MENU_' + page;
+            updateDisplay(); return;
+        }
+
+        if (calcState === 'PRGM_RUN_PREVIEW') {
+            if (dir === 'RIGHT' || dir === 'DOWN') programPreviewPage++;
+            else if (dir === 'LEFT' || dir === 'UP') programPreviewPage--;
             updateDisplay(); return;
         }
 
@@ -1505,6 +1692,7 @@
 
     function clearAll() {
         const history = document.getElementById('history');
+        if (calcState === 'PRGM_RUN_PREVIEW') { calcState = 'PRGM_SELECT_RUN'; updateDisplay(); return; }
         if (calcState.startsWith('MODE_MENU') || calcState.startsWith('PRGM_SELECT_') || calcState === 'PRGM_MODE_SELECT' || calcState === 'PRGM_MENU' || calcState === 'SD_SUM_MENU' || calcState === 'SD_VAR_MENU' || calcState === 'FMLA_BROWSE') {
             calcState = 'NORMAL'; if(history) history.innerText = ''; updateDisplay(); return;
         }
@@ -1546,12 +1734,12 @@
         tan: (x) => Math.tan(isDeg ? x * Math.PI / 180 : x), asin: (x) => isDeg ? Math.asin(x) * 180 / Math.PI : Math.asin(x),
         acos: (x) => isDeg ? Math.acos(x) * 180 / Math.PI : Math.acos(x), atan: (x) => isDeg ? Math.atan(x) * 180 / Math.PI : Math.atan(x),
         log: Math.log10, ln: Math.log, sqrt: Math.sqrt, pi: Math.PI, e_num: Math.E, cbrt: Math.cbrt, 
-        xroot: (x, y) => { 
-            if (x === 0) throw new Error("Math ERROR");
-            let isOdd = Math.abs(x) % 2 === 1;
-            if (y < 0 && !isOdd) throw new Error("Math ERROR");
-            if (y < 0 && isOdd) return -Math.pow(-y, 1/x);
-            return Math.pow(y, 1/x);
+        xroot: (x, y) => {
+            if (!Number.isInteger(x) || x === 0) throw new Error("Math ERROR");
+            const oddIndex = Math.abs(x) % 2 === 1;
+            if (y < 0 && !oddIndex) throw new Error("Math ERROR");
+            let value = y < 0 ? -Math.pow(-y, 1 / Math.abs(x)) : Math.pow(y, 1 / Math.abs(x));
+            return x < 0 ? 1 / value : value;
         },
         M: 0, ran: () => Math.floor(Math.random() * 1000) / 1000, 
         fact: (n) => {
@@ -1583,24 +1771,80 @@
         let evalStr = inputExpr;
 
         if (baseMode) {
-            if (evalStr.includes(';')) throw new Error("Syntax ERROR");
-            let cStr = evalStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${ans})`);
-            let regex;
-            if (currentBase === 'HEX') regex = /\b[0-9A-F]+\b/g; else if (currentBase === 'BIN') regex = /\b[01]+\b/g;
-            else if (currentBase === 'OCT') regex = /\b[0-7]+\b/g; else regex = /\b[0-9]+\b/g;
-            cStr = cStr.replace(regex, (match) => {
-                if (currentBase === 'HEX') return parseInt(match, 16).toString();
-                if (currentBase === 'BIN') return parseInt(match, 2).toString();
-                if (currentBase === 'OCT') return parseInt(match, 8).toString();
-                return match;
-            });
-            try {
-                let res = Math.trunc(math.evaluate(cStr));
-                if (currentBase === 'HEX') return (res >>> 0).toString(16).toUpperCase();
-                if (currentBase === 'BIN') return (res >>> 0).toString(2);
-                if (currentBase === 'OCT') return (res >>> 0).toString(8);
-                return res.toString(10);
-            } catch(e) { throw new Error("Math ERROR"); }
+            // BASE-N uses integers only. Parse each literal in the selected radix, then
+            // evaluate arithmetic in signed 32-bit range to avoid mixed-radix mistakes.
+            if (/[;,.]|\b(?:sin|cos|tan|log|ln|sqrt|pi|Ran#)\b/i.test(evalStr)) throw new Error('Syntax ERROR');
+            let source = evalStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, formatBaseValue(ans, currentBase)).replace(/\s+/g, '');
+            const radix = currentBase === 'HEX' ? 16 : currentBase === 'BIN' ? 2 : currentBase === 'OCT' ? 8 : 10;
+            const validDigits = currentBase === 'HEX' ? /^[0-9A-F]+$/i : currentBase === 'BIN' ? /^[01]+$/ : currentBase === 'OCT' ? /^[0-7]+$/ : /^[0-9]+$/;
+            let tokens = source.match(/[0-9A-F]+|[()+\-*/]/gi) || [];
+            if (!source || tokens.join('') !== source) throw new Error('Syntax ERROR');
+            // Preserve calculator-style implied multiplication, e.g. 2(3+4) or (2)(3).
+            const expandedTokens = [];
+            for (let i = 0; i < tokens.length; i++) {
+                const current = tokens[i];
+                const next = tokens[i + 1];
+                expandedTokens.push(current);
+                const currentEndsValue = current === ')' || /^[0-9A-F]+$/i.test(current);
+                const nextStartsValue = next === '(' || /^[0-9A-F]+$/i.test(next);
+                if (currentEndsValue && nextStartsValue && !(current !== ')' && next !== '(')) expandedTokens.push('*');
+            }
+            tokens = expandedTokens;
+            let pos = 0;
+
+            function decodeBaseToken(token) {
+                if (!validDigits.test(token)) throw new Error('Syntax ERROR');
+                let n = parseInt(token, radix);
+                // Full-width non-decimal values use 32-bit two's-complement notation.
+                const isNegativeWidth = (currentBase === 'HEX' && token.length === 8 && /^[89A-F]/i.test(token)) ||
+                    (currentBase === 'BIN' && token.length === 32 && token[0] === '1') ||
+                    (currentBase === 'OCT' && token.length === 10 && /^[4-7]/.test(token));
+                if (isNegativeWidth) n -= currentBase === 'OCT' ? 1073741824 : 4294967296;
+                const range = baseRange(currentBase);
+                if (!Number.isSafeInteger(n) || n < range.min || n > range.max) throw new Error('Math ERROR');
+                return n;
+            }
+            function checked(n) {
+                n = Math.trunc(n);
+                const range = baseRange(currentBase);
+                if (!Number.isFinite(n) || n < range.min || n > range.max) throw new Error('Math ERROR');
+                return n;
+            }
+            function primary() {
+                const t = tokens[pos++];
+                if (t === '(') {
+                    const v = expression();
+                    if (tokens[pos++] !== ')') throw new Error('Syntax ERROR');
+                    return v;
+                }
+                if (t === undefined || !/^[0-9A-F]+$/i.test(t)) throw new Error('Syntax ERROR');
+                return decodeBaseToken(t);
+            }
+            function unary() {
+                if (tokens[pos] === '+') { pos++; return unary(); }
+                if (tokens[pos] === '-') { pos++; return checked(-unary()); }
+                return primary();
+            }
+            function term() {
+                let value = unary();
+                while (tokens[pos] === '*' || tokens[pos] === '/') {
+                    const op = tokens[pos++], rhs = unary();
+                    if (op === '/' && rhs === 0) throw new Error('Math ERROR');
+                    value = checked(op === '*' ? value * rhs : Math.trunc(value / rhs));
+                }
+                return value;
+            }
+            function expression() {
+                let value = term();
+                while (tokens[pos] === '+' || tokens[pos] === '-') {
+                    const op = tokens[pos++], rhs = term();
+                    value = checked(op === '+' ? value + rhs : value - rhs);
+                }
+                return value;
+            }
+            const result = expression();
+            if (pos !== tokens.length) throw new Error('Syntax ERROR');
+            return result;
         }
 
         if (cmplxMode && typeof math !== 'undefined') {
@@ -1609,7 +1853,14 @@
                 let cStr = evalStr.replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${typeof ans === 'string' ? ans : ans})`)
                     .replace(/π/g, 'pi').replace(/⌟/g, '/').replace(/M\+/g, 'M').replace(/Ran#/g, 'random()')
                     .replace(/²/g, '^2').replace(/³/g, '^3').replace(/⁻¹/g, '^-1');
-                let scope = { A: memoryVars.A, B: memoryVars.B, C: memoryVars.C, D: memoryVars.D, E: memoryVars.E, F: memoryVars.F, X: memoryVars.X, Y: memoryVars.Y, M: memoryVars.M };
+                const complexScopeValue = (value) => typeof value === 'string' ? math.evaluate(value) : value;
+                let scope = {
+                    A: complexScopeValue(memoryVars.A), B: complexScopeValue(memoryVars.B),
+                    C: complexScopeValue(memoryVars.C), D: complexScopeValue(memoryVars.D),
+                    E: complexScopeValue(memoryVars.E), F: complexScopeValue(memoryVars.F),
+                    X: complexScopeValue(memoryVars.X), Y: complexScopeValue(memoryVars.Y),
+                    M: complexScopeValue(memoryVars.M)
+                };
                 let res = math.evaluate(cStr, scope);
                 if (res && (res.isComplex || math.typeOf(res) === 'Complex')) {
                     let re = math.round(res.re, 10), im = math.round(res.im, 10);
@@ -1627,6 +1878,11 @@
 
         evalStr = evalStr.replace(/\u200BΣx²\u200B/g, 'sum_x2()').replace(/\u200BΣx\u200B/g, 'sum_x()').replace(/\u200Bn\u200B/g, 'n_stat()')
             .replace(/\u200Bx̄\u200B/g, 'x_bar()').replace(/\u200Bσx\u200B/g, 'sigma_x()').replace(/\u200Bsx\u200B/g, 's_x()')
+            .replace(/\u200BΣy²\u200B/g, 'sum_y2()').replace(/\u200BΣy\u200B/g, 'sum_y()').replace(/\u200BΣxy\u200B/g, 'sum_xy()')
+            .replace(/\u200BΣx²y\u200B/g, 'sum_x2y()').replace(/\u200BΣx³\u200B/g, 'sum_x3()').replace(/\u200BΣx⁴\u200B/g, 'sum_x4()')
+            .replace(/\u200Bȳ\u200B/g, 'y_bar()').replace(/\u200Bσy\u200B/g, 'sigma_y()').replace(/\u200Bsy\u200B/g, 's_y()')
+            .replace(/\u200BREG_A\u200B/g, 'reg_a()').replace(/\u200BREG_B\u200B/g, 'reg_b()').replace(/\u200BREG_C\u200B/g, 'reg_c()').replace(/\u200BREG_R\u200B/g, 'reg_r()')
+            .replace(/\u200BminX\u200B/g, 'min_x()').replace(/\u200BmaxX\u200B/g, 'max_x()').replace(/\u200BminY\u200B/g, 'min_y()').replace(/\u200BmaxY\u200B/g, 'max_y()')
             .replace(/×/g, '*').replace(/÷/g, '/').replace(/Ans/g, `(${ans})`).replace(/π/g, 'pi').replace(/⌟/g, '/')
             .replace(/M\+/g, 'M').replace(/Ran#/g, 'ran()'); 
         
@@ -1681,7 +1937,7 @@
             .replace(/²/g, '**2').replace(/³/g, '**3').replace(/⁻¹/g, '**-1').replace(/\^/g, '**')
             .replace(/E\((-?\d+)\)/g, '*10**$1').replace(/E(-?\d+)/g, '*10**$1');
 
-        evalStr = evalStr.replace(/(\d|\)|pi|%|A|B|C|D|E|F|X|Y|M)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|cbrt|fact|nPr|nCr|ran|pi|e_num|sum_x2|sum_x|n_stat|x_bar|sigma_x|s_x|A|B|C|D|E|F|X|Y|M)/g, '$1*');
+        evalStr = evalStr.replace(/(?<![A-Za-z_])(\d|\)|pi|%|A|B|C|D|E|F|X|Y|M)(?=\(|sin|cos|tan|asin|acos|atan|log|ln|sqrt|cbrt|fact|nPr|nCr|ran|pi|e_num|sum_x2|sum_x|n_stat|x_bar|sigma_x|s_x|A|B|C|D|E|F|X|Y|M)/g, '$1*');
         evalStr = evalStr.replace(/(\)|pi|%|M)(?=\d)/g, '$1*');
 
         let openBrackets = (evalStr.match(/\(/g) || []).length;
@@ -1689,7 +1945,7 @@
         for(let i = 0; i < (openBrackets - closeBrackets); i++) { evalStr += ')'; }
 
         let result = new Function('mathLib', `
-            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, cbrt, xroot, fact, nPr, nCr, ran, pi, e_num, sum_x2, sum_x, n_stat, x_bar, sigma_x, s_x, A, B, C, D, E, F, X, Y, M } = mathLib;
+            const { sin, cos, tan, asin, acos, atan, log, ln, sqrt, cbrt, xroot, fact, nPr, nCr, ran, pi, e_num, sum_x2, sum_x, n_stat, x_bar, sigma_x, s_x, sum_y2, sum_y, sum_xy, sum_x2y, sum_x3, sum_x4, y_bar, sigma_y, s_y, reg_a, reg_b, reg_c, reg_r, reg_xhat, reg_xhat1, reg_xhat2, reg_yhat, min_x, max_x, min_y, max_y, A, B, C, D, E, F, X, Y, M } = mathLib;
             return ${evalStr};
         `)(mathLib);
 
@@ -1734,6 +1990,9 @@
         if (!progStr || progStr.trim() === '') {
             calcState = 'NORMAL'; expr = ''; updateDisplay(); return;
         }
+        programPreviousMode = { cmplxMode, sdMode, baseMode };
+        cmplxMode = (programModes[id] || 'COMP') === 'CMPLX';
+        sdMode = false; baseMode = false;
         let tokens = progStr.split(/(:|◢)/).filter(s => s !== '');
         progSteps = [];
         let currentText = "";
@@ -1755,7 +2014,14 @@
     function runNextProgStep() {
         const history = document.getElementById('history');
         if (progStepIdx >= progSteps.length) {
-            calcState = 'NORMAL'; isResultDisplayed = true; updateDisplay(); return;
+            calcState = 'NORMAL';
+            if (programPreviousMode) {
+                cmplxMode = programPreviousMode.cmplxMode;
+                sdMode = programPreviousMode.sdMode;
+                baseMode = programPreviousMode.baseMode;
+                programPreviousMode = null;
+            }
+            isResultDisplayed = true; updateDisplay(); return;
         }
         let step = progSteps[progStepIdx];
         let text = step.text.trim();
@@ -1798,7 +2064,14 @@
                 } else { progStepIdx++; runNextProgStep(); }
             }
         } catch(e) {
-            calcState = 'NORMAL'; expr = e.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; updateDisplay();
+            calcState = 'NORMAL';
+            if (programPreviousMode) {
+                cmplxMode = programPreviousMode.cmplxMode;
+                sdMode = programPreviousMode.sdMode;
+                baseMode = programPreviousMode.baseMode;
+                programPreviousMode = null;
+            }
+            expr = e.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR'; updateDisplay();
         }
     }
 
@@ -1817,7 +2090,8 @@
 
     function calculate() {
         const history = document.getElementById('history');
-        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'SD_SUM_MENU', 'SD_VAR_MENU'].includes(calcState)) return;
+        if (calcState === 'PRGM_RUN_PREVIEW') { executeProgram(programBrowseId); return; }
+        if (['MODE_MENU_1', 'MODE_MENU_2', 'PRGM_MENU', 'PRGM_SELECT_EDIT', 'PRGM_SELECT_RUN', 'PRGM_SYMBOL_MENU_1', 'PRGM_SYMBOL_MENU_2', 'PRGM_SYMBOL_MENU_3', 'PRGM_SYMBOL_MENU_4', 'PRGM_SYMBOL_MENU_5', 'PRGM_SYMBOL_MENU_6', 'PRGM_SYMBOL_MENU_7', 'PRGM_SYMBOL_MENU_8', 'PRGM_SYMBOL_MENU_9', 'SD_SUM_MENU', 'SD_VAR_MENU'].includes(calcState)) return;
         if (calcState === 'FMLA_BROWSE') { startDynamicFmla(fmlaBrowseIdx); return; }
         if (calcState === 'FMLA_INPUT' || calcState === 'FMLA_OUTPUT') { handleDynamicFmlaExe(); return; }
         if (calcState === 'PROG_INPUT_VAR' || calcState === 'PROG_OUTPUT') { handleProgRunExe(); return; }
@@ -1836,14 +2110,668 @@
         try {
             let result = evaluateMathString(expr);
             calcHistory.push({ expression: expr, result: result.toString() });
-            historyIndex = calcHistory.length; 
-            expr = result.toString(); ans = result; isResultDisplayed = true; 
+            historyIndex = calcHistory.length;
+            if (baseMode) {
+                ans = Number(result);
+                expr = formatBaseValue(ans, currentBase);
+            } else {
+                expr = result.toString();
+                ans = result;
+            }
+            isResultDisplayed = true; 
             updateDisplay();
         } catch (error) {
             expr = error.message === "Math ERROR" ? 'Math ERROR' : 'Syntax ERROR';
             updateDisplay();
         }
     }
+
+
+    // ----------------------------------------------------------------------
+    // fx-3650P II manual additions: full CMPLX/REG operation support.
+    // Existing calculator faceplate, buttons and original feature handlers remain.
+    // ----------------------------------------------------------------------
+    let regMode = false;
+    let regData = [];                 // [{x, y, frequency}]
+    let regReplayHistory = [];        // x1, y1, Freq1, x2, y2, Freq2 ...
+    let regReplayIndex = -1;
+    let regReplayActive = false;
+    let regCurrentField = null;       // {rowIndex, field}
+    let regEditTarget = null;
+    let regType = 'LIN';
+    let regTypePage = 1;
+    let freqOn = true;
+    let fmlaCalcContext = false;
+    let angleUnit = 'DEG';
+
+    let complexDefaultFormat = 'RECT';
+    let complexLastFormat = 'RECT';
+    let complexFormatOverride = null;
+    let complexDisplayPart = 'REAL';
+    let lastComplexResult = null;
+
+    const __handleNumOriginal = handleNum;
+    const __handleMPlusOriginal = handleMPlus;
+    const __navigateHistoryOriginal = navigateHistory;
+    const __handleModeSetupOriginal = handleModeSetup;
+    const __handleVarKeyOriginal = handleVarKey;
+    const __handleCommaOriginal = handleCommaOrSemicolon;
+    const __handleEngOriginal = handleEngOrI;
+    const __handleOpenParenOriginal = insertOpenParenOrPercent;
+    const __prepareNewInputOriginal = prepareNewInput;
+    const __evaluateMathStringOriginal = evaluateMathString;
+    const __updateDisplayOriginal = updateDisplay;
+    const __calculateOriginal = calculate;
+
+    function statRound(n) {
+        if (!Number.isFinite(n)) throw new Error('Math ERROR');
+        if (Object.is(n, -0) || Math.abs(n) < 5e-12) return 0;
+        return Number(n.toPrecision(12));
+    }
+    function regTotalN() {
+        return regData.reduce((sum, row) => sum + row.frequency, 0);
+    }
+    function regSums() {
+        if (!regData.length) throw new Error('Math ERROR');
+        const s = { n: 0, sx: 0, sx2: 0, sx3: 0, sx4: 0, sy: 0, sy2: 0, sxy: 0, sx2y: 0 };
+        for (const row of regData) {
+            const w = row.frequency, x = row.x, y = row.y;
+            s.n += w; s.sx += w*x; s.sx2 += w*x*x; s.sx3 += w*x*x*x; s.sx4 += w*x*x*x*x;
+            s.sy += w*y; s.sy2 += w*y*y; s.sxy += w*x*y; s.sx2y += w*x*x*y;
+        }
+        return s;
+    }
+    function regMeanX() { const s = regSums(); return s.sx / s.n; }
+    function regMeanY() { const s = regSums(); return s.sy / s.n; }
+    function regStdX(sample=false) {
+        const s = regSums(); if (sample && s.n <= 1) throw new Error('Math ERROR');
+        const v = (s.sx2 - s.sx*s.sx/s.n) / (sample ? s.n-1 : s.n);
+        return Math.sqrt(Math.max(0, v));
+    }
+    function regStdY(sample=false) {
+        const s = regSums(); if (sample && s.n <= 1) throw new Error('Math ERROR');
+        const v = (s.sy2 - s.sy*s.sy/s.n) / (sample ? s.n-1 : s.n);
+        return Math.sqrt(Math.max(0, v));
+    }
+    function weightedLinearFit(rows, tx, ty) {
+        let n=0, sx=0, sy=0, sxx=0, syy=0, sxy=0;
+        for (const row of rows) {
+            const x=tx(row.x,row.y), y=ty(row.x,row.y), w=row.frequency;
+            if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('Math ERROR');
+            n+=w; sx+=w*x; sy+=w*y; sxx+=w*x*x; syy+=w*y*y; sxy+=w*x*y;
+        }
+        if (n < 2) throw new Error('Math ERROR');
+        const den = n*sxx-sx*sx;
+        if (Math.abs(den) < 1e-14) throw new Error('Math ERROR');
+        const b=(n*sxy-sx*sy)/den, a=(sy-b*sx)/n;
+        const rDen=Math.sqrt(Math.max(0,(n*sxx-sx*sx)*(n*syy-sy*sy)));
+        const r=rDen ? (n*sxy-sx*sy)/rDen : NaN;
+        return {a,b,r};
+    }
+    function solve3x3(A, b) {
+        const m=A.map((row,i)=>row.slice().concat([b[i]]));
+        for (let col=0; col<3; col++) {
+            let pivot=col;
+            for (let r=col+1;r<3;r++) if (Math.abs(m[r][col])>Math.abs(m[pivot][col])) pivot=r;
+            if (Math.abs(m[pivot][col])<1e-12) throw new Error('Math ERROR');
+            [m[col],m[pivot]]=[m[pivot],m[col]];
+            const div=m[col][col]; for(let j=col;j<4;j++) m[col][j]/=div;
+            for(let r=0;r<3;r++) if(r!==col) { const k=m[r][col]; for(let j=col;j<4;j++) m[r][j]-=k*m[col][j]; }
+        }
+        return [m[0][3],m[1][3],m[2][3]];
+    }
+    function regressionStats() {
+        const s=regSums();
+        if (regType === 'QUAD') {
+            if (s.n < 3) throw new Error('Math ERROR');
+            const coeff=solve3x3(
+                [[s.n,s.sx,s.sx2],[s.sx,s.sx2,s.sx3],[s.sx2,s.sx3,s.sx4]],
+                [s.sy,s.sxy,s.sx2y]
+            );
+            return {a:coeff[0],b:coeff[1],c:coeff[2],r:NaN};
+        }
+        let fit;
+        switch(regType) {
+            case 'LIN': fit=weightedLinearFit(regData,(x)=>x,(_,y)=>y); return {a:fit.a,b:fit.b,r:fit.r};
+            case 'LOG': fit=weightedLinearFit(regData,(x)=>{if(x<=0)throw new Error('Math ERROR');return Math.log(x);},(_,y)=>y); return {a:fit.a,b:fit.b,r:fit.r};
+            case 'EXP': fit=weightedLinearFit(regData,(x)=>x,(_,y)=>{if(y<=0)throw new Error('Math ERROR');return Math.log(y);}); return {a:Math.exp(fit.a),b:fit.b,r:fit.r};
+            case 'PWR': fit=weightedLinearFit(regData,(x)=>{if(x<=0)throw new Error('Math ERROR');return Math.log(x);},(_,y)=>{if(y<=0)throw new Error('Math ERROR');return Math.log(y);}); return {a:Math.exp(fit.a),b:fit.b,r:fit.r};
+            case 'INV': fit=weightedLinearFit(regData,(x)=>{if(x===0)throw new Error('Math ERROR');return 1/x;},(_,y)=>y); return {a:fit.a,b:fit.b,r:fit.r};
+            case 'ABEXP': fit=weightedLinearFit(regData,(x)=>x,(_,y)=>{if(y<=0)throw new Error('Math ERROR');return Math.log(y);}); return {a:Math.exp(fit.a),b:Math.exp(fit.b),r:fit.r};
+            default: throw new Error('Math ERROR');
+        }
+    }
+    function regPredictY(x) {
+        const p=regressionStats();
+        switch(regType) {
+            case 'LIN': return p.a+p.b*x;
+            case 'LOG': if(x<=0)throw new Error('Math ERROR'); return p.a+p.b*Math.log(x);
+            case 'EXP': return p.a*Math.exp(p.b*x);
+            case 'PWR': if(x<=0)throw new Error('Math ERROR'); return p.a*Math.pow(x,p.b);
+            case 'INV': if(x===0)throw new Error('Math ERROR'); return p.a+p.b/x;
+            case 'ABEXP': return p.a*Math.pow(p.b,x);
+            case 'QUAD': return p.a+p.b*x+p.c*x*x;
+        }
+    }
+    function regEstimateX(y, rootIndex=1) {
+        const p=regressionStats();
+        switch(regType) {
+            case 'LIN': if(p.b===0)throw new Error('Math ERROR'); return (y-p.a)/p.b;
+            case 'LOG': if(p.b===0)throw new Error('Math ERROR'); return Math.exp((y-p.a)/p.b);
+            case 'EXP': if(y<=0||p.b===0)throw new Error('Math ERROR'); return (Math.log(y)-Math.log(p.a))/p.b;
+            case 'PWR': if(y<=0||p.b===0)throw new Error('Math ERROR'); return Math.exp((Math.log(y)-Math.log(p.a))/p.b);
+            case 'INV': if(y===p.a)throw new Error('Math ERROR'); return p.b/(y-p.a);
+            case 'ABEXP': if(y<=0||p.b<=0||p.b===1)throw new Error('Math ERROR'); return (Math.log(y)-Math.log(p.a))/Math.log(p.b);
+            case 'QUAD': {
+                const d=p.b*p.b-4*p.c*(p.a-y);
+                if(d<0||p.c===0) throw new Error('Math ERROR');
+                return (-p.b+(rootIndex===1?1:-1)*Math.sqrt(d))/(2*p.c);
+            }
+        }
+    }
+    function minStat(axis) {
+        if(!regData.length) throw new Error('Math ERROR');
+        return Math.min(...regData.map(r=>r[axis]));
+    }
+    function maxStat(axis) {
+        if(!regData.length) throw new Error('Math ERROR');
+        return Math.max(...regData.map(r=>r[axis]));
+    }
+
+    // Preserve SD commands while switching the same S-SUM/S-VAR tokens to paired data in REG.
+    const __sdSumX2 = mathLib.sum_x2, __sdSumX = mathLib.sum_x, __sdN = mathLib.n_stat;
+    mathLib.sum_x2 = () => regMode ? regSums().sx2 : __sdSumX2();
+    mathLib.sum_x = () => regMode ? regSums().sx : __sdSumX();
+    mathLib.n_stat = () => regMode ? regTotalN() : __sdN();
+    mathLib.x_bar = () => regMode ? regMeanX() : (__sdN() ? __sdSumX()/__sdN() : (()=>{throw new Error('Math ERROR')})());
+    mathLib.sigma_x = () => regMode ? regStdX(false) : Math.sqrt(Math.max(0,__sdSumX2()/__sdN()-Math.pow(mathLib.x_bar(),2)));
+    mathLib.s_x = () => regMode ? regStdX(true) : ( __sdN()>1 ? Math.sqrt(Math.max(0,(__sdSumX2()-__sdN()*Math.pow(mathLib.x_bar(),2))/(__sdN()-1))) : (()=>{throw new Error('Math ERROR')})() );
+    Object.assign(mathLib, {
+        sum_y2: () => regSums().sy2, sum_y: () => regSums().sy, sum_xy: () => regSums().sxy,
+        sum_x2y: () => regSums().sx2y, sum_x3: () => regSums().sx3, sum_x4: () => regSums().sx4,
+        y_bar: () => regMeanY(), sigma_y: () => regStdY(false), s_y: () => regStdY(true),
+        reg_a: () => regressionStats().a, reg_b: () => regressionStats().b,
+        reg_c: () => regressionStats().c, reg_r: () => regressionStats().r,
+        min_x: () => minStat('x'), max_x: () => maxStat('x'), min_y: () => minStat('y'), max_y: () => maxStat('y')
+    });
+
+    function rebuildRegReplayHistory() {
+        regReplayHistory=[];
+        regData.forEach((row,i)=>{
+            regReplayHistory.push({label:`X${i+1}`,value:row.x,rowIndex:i,field:'x'});
+            regReplayHistory.push({label:`Y${i+1}`,value:row.y,rowIndex:i,field:'y'});
+            if(freqOn) regReplayHistory.push({label:`Freq${i+1}`,value:row.frequency,rowIndex:i,field:'frequency'});
+        });
+        regReplayIndex=-1; regReplayActive=false; regCurrentField=null;
+    }
+    function setRegType(type) {
+        regType=type; calcState='NORMAL'; expr=''; isResultDisplayed=false;
+        const h=document.getElementById('history'); if(h) h.innerText='REG '+({LIN:'Lin',LOG:'Log',EXP:'Exp',PWR:'Pwr',INV:'Inv',QUAD:'Quad',ABEXP:'AB-Exp'}[type]||type);
+        updateDisplay();
+    }
+    function regInsertToken(token) {
+        expr=token; calcState='NORMAL'; isResultDisplayed=false;
+        const h=document.getElementById('history'); if(h) h.innerText='';
+        updateDisplay();
+    }
+    function regInsertEstimate(which) {
+        const value=expr.trim();
+        if(!value || !/^[+\-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+\-]?\d+)?$/.test(value)) {
+            expr='Syntax ERROR'; isResultDisplayed=true; updateDisplay(); return;
+        }
+        const fn=which==='xhat' ? 'regEstimateX' : 'regPredictY';
+        expr = which==='xhat' ? `reg_xhat(${value})` : `reg_yhat(${value})`;
+        // These function names are bound in the evaluator below through the existing mathLib command table.
+        updateDisplay();
+    }
+
+    function handleFmlaKey() {
+        lastComplexResult=null; complexDisplayPart='REAL'; complexFormatOverride=null;
+        if(calcState==='PRGM_EDITING') { insertStr('FMLA '); return; }
+        // FMLA remains available regardless of COMP/CMPLX/BASE/SD/REG/PRGM menu state.
+        insertCommand('FMLA ');
+    }
+
+    function handlePlusKey() {
+        if(cmplxMode && isShift) { complexFormatOverride='POLAR'; isShift=false; updateDisplay(); return; }
+        insertStr('+');
+    }
+    function handleMinusKey() {
+        if(cmplxMode && isShift) { complexFormatOverride='RECT'; isShift=false; updateDisplay(); return; }
+        insertStr('-');
+    }
+    handleEngOrI = function() {
+        if(cmplxMode) { isShift=false; insertStr('i'); return; }
+        return __handleEngOriginal();
+    };
+    handleCommaOrSemicolon = function() {
+        if(cmplxMode && isShift) { isShift=false; insertStr('Conjg('); return; }
+        if((sdMode || regMode) && isShift) { isShift=false; insertStr(';'); return; }
+        return __handleCommaOriginal();
+    };
+    handleOpenParenOrPercent = function() {
+        if(cmplxMode && isShift) { isShift=false; insertStr('arg('); return; }
+        return __handleOpenParenOriginal();
+    };
+    handleVarKey = function(varName, normalAction) {
+        if(cmplxMode && isShift && varName==='A') { isShift=false; insertStr('∠'); return; }
+        if(cmplxMode && isShift && varName==='X') { isShift=false; insertStr('arg('); return; }
+        if(cmplxMode && isShift && varName==='Y') { isShift=false; insertStr('Abs('); return; }
+        return __handleVarKeyOriginal(varName,normalAction);
+    };
+    prepareNewInput = function(str=null) {
+        if(isResultDisplayed && lastComplexResult) lastComplexResult=null;
+        if(regReplayActive && isResultDisplayed && regCurrentField && !regEditTarget) {
+            regEditTarget={rowIndex:regCurrentField.rowIndex,field:regCurrentField.field};
+        }
+        return __prepareNewInputOriginal(str);
+    };
+
+    function setRegMenu(state) { calcState=state; updateDisplay(); }
+    function currentStatMenuText() {
+        const map={
+            REG_TYPE_MENU_1:'1:Lin  2:Log  3:Exp  4:Pwr', REG_TYPE_MENU_2:'1:Inv  2:Quad  3:AB-Exp',
+            REG_SUM_MENU_1:'1:Σx²  2:Σx  3:n', REG_SUM_MENU_2:'1:Σy²  2:Σy  3:Σxy', REG_SUM_MENU_3:'1:Σx²y  2:Σx³  3:Σx⁴',
+            REG_VAR_ROOT:'1:VAR  2:MINMAX  3:TYPE',
+            REG_VAR_MENU_1:'1:x̄  2:σx  3:sx', REG_VAR_MENU_2:'1:ȳ  2:σy  3:sy',
+            REG_VAR_MENU_3:'1:a  2:b  3:r', REG_VAR_MENU_4:regType==='QUAD'?'1:c  2:x̂₁  3:x̂₂':'1:x̂  2:ŷ', REG_VAR_MENU_5:'1:ŷ',
+            REG_MINMAX_MENU_1:'1:minX  2:maxX  3:minY', REG_MINMAX_MENU_2:'1:maxY',
+            SETUP_MENU_1:'1:DEG  2:RAD  3:GRA', SETUP_MENU_2:'1:FreqOn  2:FreqOff',
+            SETUP_MENU_3:'1:a+bi  2:r∠θ', STAT_CLEAR_CONFIRM:'1:Stat  2:Cancel', STAT_CLEAR_EXEC:'Stat Clear? EXE'
+        };
+        return map[calcState] || '';
+    }
+    function isAddedMenuState(state=calcState) {
+        return /^(REG_TYPE_MENU_[12]|REG_SUM_MENU_[123]|REG_VAR_ROOT|REG_VAR_MENU_[1-5]|REG_MINMAX_MENU_[12]|SETUP_MENU_[123]|STAT_CLEAR_CONFIRM|STAT_CLEAR_EXEC)$/.test(state);
+    }
+
+    updateDisplay = function() {
+        __updateDisplayOriginal();
+        const menuText=currentStatMenuText();
+        const sc=document.querySelector('.screen-content');
+        const disp=document.getElementById('display');
+        const ind=document.getElementById('ind-cmplx');
+        const indStat=document.getElementById('ind-sd');
+        if(isAddedMenuState() && menuText) {
+            if(sc) sc.classList.add('mode-menu-view');
+            if(disp) { disp.innerHTML=menuText+'<span class="cursor">_</span>'; disp.scrollLeft=0; }
+        }
+        if(indStat) indStat.innerText = sdMode ? 'SD' : (regMode ? 'REG' : '');
+        if(cmplxMode && isResultDisplayed && lastComplexResult && disp) {
+            const n=lastComplexResult;
+            let out='';
+            if(complexDisplayPart==='IMAG') {
+                const imagValue = formatCalculatorNumber(n.im);
+                // Match the calculator display convention: an integer imaginary
+                // coefficient is shown with a trailing decimal point (for example 1.i).
+                const imagText = Number.isInteger(Number(n.im)) ? imagValue+'.i' : imagValue+'i';
+                out = complexLastFormat==='POLAR' ? '∠ '+formatCalculatorNumber(n.angle) : imagText;
+            } else {
+                out = complexLastFormat==='POLAR' ? formatCalculatorNumber(n.magnitude) : formatCalculatorNumber(n.re);
+            }
+            disp.innerHTML=out+'<span class="cursor">_</span>'; disp.scrollLeft=0;
+            if(ind) ind.innerText='CMPLX R⇔I';
+        }
+    };
+    function formatCalculatorNumber(n) { return statRound(Number(n)).toString(); }
+
+    // FMLA expressions are a calculator utility in every calculation mode. Evaluate their
+    // numeric prompts in the ordinary real-number engine, then restore the selected mode.
+    evaluateMathString = function(inputExpr) {
+        if(!fmlaCalcContext) return __evaluateMathStringOriginal(inputExpr);
+        const saved={baseMode,cmplxMode,sdMode,regMode};
+        baseMode=false; cmplxMode=false; sdMode=false; regMode=false;
+        try { return __evaluateMathStringOriginal(inputExpr); }
+        finally { baseMode=saved.baseMode; cmplxMode=saved.cmplxMode; sdMode=saved.sdMode; regMode=saved.regMode; }
+    };
+    const __handleDynamicFmlaExeOriginal = handleDynamicFmlaExe;
+    handleDynamicFmlaExe = function() {
+        fmlaCalcContext = true;
+        try { return __handleDynamicFmlaExeOriginal(); }
+        finally { fmlaCalcContext = false; }
+    };
+
+    function complexLiteral(re,im) {
+        re=statRound(re); im=statRound(im);
+        if(re===0 && im===0) return '0';
+        if(im===0) return String(re);
+        const imPart=(Math.abs(im)===1?'':String(Math.abs(im)))+'i';
+        if(re===0) return (im<0?'-':'')+imPart;
+        return String(re)+(im<0?'-':'+')+imPart;
+    }
+    function toAngleUnit(rad) {
+        if(angleUnit==='DEG') return rad*180/Math.PI;
+        if(angleUnit==='GRA') return rad*200/Math.PI;
+        return rad;
+    }
+    function evaluateComplexExpression(inputExpr) {
+        if(typeof math==='undefined') throw new Error('Math ERROR');
+        let src=String(inputExpr).replace(/×/g,'*').replace(/÷/g,'/').replace(/π/g,'pi').replace(/⌟/g,'/');
+        src=src.replace(/Ans/g,`(${typeof ans==='string'?ans:String(ans)})`).replace(/M\+/g,'M').replace(/Ran#/g,'random()');
+        src=src.replace(/²/g,'^2').replace(/³/g,'^3').replace(/⁻¹/g,'^-1').replace(/Conjg\(/g,'conj(').replace(/Abs\(/g,'abs(');
+        // The calculator's ENG(i) key can be pressed twice in succession.
+        // Treat the resulting "ii" sequence as i multiplied by i, not as
+        // an unknown variable named "ii". Also accept a space between taps.
+        src=src.replace(/i{2,}/g, run => Array(run.length).fill('i').join('*'));
+        src=src.replace(/i\s+i/g, 'i*i');
+        const angleScale=angleUnit==='DEG'?Math.PI/180:(angleUnit==='GRA'?Math.PI/200:1);
+        // Polar input r∠theta becomes a rectangular complex value, using the selected angle unit.
+        src=src.replace(/(\d+(?:\.\d*)?|\.\d+)∠([+\-]?(?:\d+(?:\.\d*)?|\.\d+))/g,
+            (_m,r,t)=>`complex((${r})*cos((${t})*${angleScale}),(${r})*sin((${t})*${angleScale}))`);
+        // Complex mode supports nPr/nCr and factorial for real integer arguments (manual p.24).
+        function leftOperand(str,idx) {
+            let st=idx-1, depth=0;
+            if(str[st]===')') { depth=1; st--; while(st>=0&&depth){if(str[st]===')')depth++;else if(str[st]==='(')depth--;st--;} st++; const m=str.slice(0,st).match(/[A-Za-z_]+$/); if(m)st-=m[0].length; }
+            else while(st>=0&&/[\d.]/.test(str[st]))st--;
+            if(st<0 && str[0]==='-') st=-1;
+            return {start:st+1,text:str.slice(st+1,idx)};
+        }
+        function rightOperand(str,idx) {
+            let en=idx,depth=0;
+            if(str[en]==='('){depth=1;en++;while(en<str.length&&depth){if(str[en]==='(')depth++;else if(str[en]===')')depth--;en++;}}
+            else {if(str[en]==='-')en++;while(en<str.length&&/[\d.]/.test(str[en]))en++;}
+            return {end:en,text:str.slice(idx,en)};
+        }
+        for(const [token,fn] of [['\u200BP\u200B','nPr'],['\u200BC\u200B','nCr']]) {
+            while(src.includes(token)) {
+                const idx=src.indexOf(token), l=leftOperand(src,idx), r=rightOperand(src,idx+token.length);
+                if(!l.text||!r.text) throw new Error('Syntax ERROR');
+                src=src.slice(0,l.start)+`${fn}(${l.text},${r.text})`+src.slice(r.end);
+            }
+        }
+        src=src.replace(/(\([^()]*\)|\d+(?:\.\d*)?)!/g,'fact($1)');
+        const cv=v => typeof v==='string' ? math.evaluate(v) : v;
+        const scope={
+            A:cv(memoryVars.A),B:cv(memoryVars.B),C:cv(memoryVars.C),D:cv(memoryVars.D),E:cv(memoryVars.E),F:cv(memoryVars.F),
+            X:cv(memoryVars.X),Y:cv(memoryVars.Y),M:cv(memoryVars.M),
+            sin:x=>math.sin(math.multiply(x,angleScale)), cos:x=>math.cos(math.multiply(x,angleScale)), tan:x=>math.tan(math.multiply(x,angleScale)),
+            asin:x=>math.multiply(math.asin(x),isDeg?180/Math.PI:1), acos:x=>math.multiply(math.acos(x),isDeg?180/Math.PI:1), atan:x=>math.multiply(math.atan(x),isDeg?180/Math.PI:1),
+            conj:z=>math.typeOf(z)==='Complex'?math.complex(z.re,-z.im):z,
+            arg:z=>toAngleUnit(math.arg(z)),
+            fact:n=>{if(!Number.isInteger(Number(n))||Number(n)<0)throw new Error('Math ERROR');return math.factorial(Number(n));},
+            nPr:(n,r)=>{n=Number(n);r=Number(r);if(!Number.isInteger(n)||!Number.isInteger(r)||n<0||r<0||r>n)throw new Error('Math ERROR');let v=1;for(let i=n-r+1;i<=n;i++)v*=i;return v;},
+            nCr:(n,r)=>{n=Number(n);r=Number(r);if(!Number.isInteger(n)||!Number.isInteger(r)||n<0||r<0||r>n)throw new Error('Math ERROR');let v=1;for(let i=1;i<=Math.min(r,n-r);i++)v=v*(n-i+1)/i;return v;}
+        };
+        const value=math.evaluate(src,scope);
+        if(math.typeOf(value)==='Complex' || value && value.isComplex) {
+            const re=statRound(value.re), im=statRound(value.im);
+            const magnitude=Math.hypot(re,im);
+            let angle=Math.atan2(im,re); angle=toAngleUnit(angle);
+            lastComplexResult={re,im,magnitude:statRound(magnitude),angle:statRound(angle)};
+            return complexLiteral(re,im);
+        }
+        lastComplexResult=null;
+        return statRound(Number(value));
+    }
+    const __complexAwareEvaluate = evaluateMathString;
+    evaluateMathString = function(inputExpr) {
+        if(fmlaCalcContext) return __complexAwareEvaluate(inputExpr);
+        if(cmplxMode && !baseMode) return evaluateComplexExpression(inputExpr);
+        return __complexAwareEvaluate(inputExpr);
+    };
+
+    // MODE 5 is paired-variable regression. The two selection screens match the manual.
+    handleNum = function(numStr) {
+        const h=document.getElementById('history');
+        if(calcState.startsWith('MODE_MENU') && numStr==='5') {
+            sdMode=false; cmplxMode=false; baseMode=false; regMode=true; regType='LIN'; regData=[]; regReplayHistory=[];
+            calcState='REG_TYPE_MENU_1'; expr=''; ans=0; isResultDisplayed=false; if(h)h.innerText=''; updateDisplay(); return;
+        }
+        if(calcState.startsWith('MODE_MENU') && ['1','2','3','4','6'].includes(numStr)) regMode=false;
+        if(calcState==='REG_TYPE_MENU_1' || calcState==='REG_TYPE_MENU_2') {
+            const choices=calcState==='REG_TYPE_MENU_1'?['LIN','LOG','EXP','PWR']:['INV','QUAD','ABEXP'];
+            const idx=Number(numStr)-1; if(choices[idx]) setRegType(choices[idx]);
+            return;
+        }
+        if(calcState==='SETUP_MENU_1') {
+            if(numStr==='1'){angleUnit='DEG';isDeg=true;calcState='NORMAL';}
+            else if(numStr==='2'){angleUnit='RAD';isDeg=false;calcState='NORMAL';}
+            else if(numStr==='3'){angleUnit='GRA';isDeg=false;calcState='NORMAL';}
+            const deg=document.getElementById('ind-deg');if(deg)deg.innerText=angleUnit==='DEG'?'D':(angleUnit==='GRA'?'G':'R');
+            updateDisplay();return;
+        }
+        if(calcState==='SETUP_MENU_2') {
+            if(numStr==='1'||numStr==='2') {
+                freqOn=numStr==='1'; sdData=[];sdEntries=[];sdReplayHistory=[];regData=[];regReplayHistory=[];
+                calcState='NORMAL';expr='';isResultDisplayed=false;if(h)h.innerText='';
+            }
+            updateDisplay();return;
+        }
+        if(calcState==='SETUP_MENU_3') {
+            if(numStr==='1')complexDefaultFormat='RECT';
+            if(numStr==='2')complexDefaultFormat='POLAR';
+            calcState='NORMAL';updateDisplay();return;
+        }
+        if(calcState==='STAT_CLEAR_CONFIRM') {
+            if(numStr==='1') calcState='STAT_CLEAR_EXEC';
+            else if(numStr==='2') calcState='NORMAL';
+            updateDisplay();return;
+        }
+        if(calcState==='REG_VAR_ROOT') {
+            if(numStr==='1')setRegMenu('REG_VAR_MENU_1');
+            else if(numStr==='2')setRegMenu('REG_MINMAX_MENU_1');
+            else if(numStr==='3')setRegMenu('REG_TYPE_MENU_1');
+            return;
+        }
+        if(calcState.startsWith('REG_SUM_MENU_')) {
+            const page=Number(calcState.split('_').pop());
+            const tokens={
+                1:['\u200BΣx²\u200B','\u200BΣx\u200B','\u200Bn\u200B'],
+                2:['\u200BΣy²\u200B','\u200BΣy\u200B','\u200BΣxy\u200B'],
+                3:['\u200BΣx²y\u200B','\u200BΣx³\u200B','\u200BΣx⁴\u200B']
+            };
+            if(tokens[page]&&tokens[page][Number(numStr)-1]) regInsertToken(tokens[page][Number(numStr)-1]);
+            return;
+        }
+        if(calcState.startsWith('REG_VAR_MENU_')) {
+            const page=Number(calcState.split('_').pop());
+            const tokenPages={
+                1:['\u200Bx̄\u200B','\u200Bσx\u200B','\u200Bsx\u200B'],
+                2:['\u200Bȳ\u200B','\u200Bσy\u200B','\u200Bsy\u200B'],
+                3:['\u200BREG_A\u200B','\u200BREG_B\u200B','\u200BREG_R\u200B'],
+                4:regType==='QUAD'?['\u200BREG_C\u200B','XHAT1','XHAT2']:['XHAT','YHAT'],
+                5:['YHAT']
+            };
+            const token=tokenPages[page]&&tokenPages[page][Number(numStr)-1];
+            if(token) {
+                if(token==='XHAT'||token==='XHAT1'||token==='XHAT2') {
+                    const val=expr.trim(); if(!val){expr='Syntax ERROR';calcState='NORMAL';updateDisplay();return;}
+                    expr=token==='XHAT' ? `reg_xhat(${val})` : `reg_xhat${token==='XHAT1'?'1':'2'}(${val})`;calcState='NORMAL';isResultDisplayed=false;updateDisplay();return;
+                }
+                if(token==='YHAT') {
+                    const val=expr.trim();if(!val){expr='Syntax ERROR';calcState='NORMAL';updateDisplay();return;}
+                    expr=`reg_yhat(${val})`;calcState='NORMAL';isResultDisplayed=false;updateDisplay();return;
+                }
+                regInsertToken(token);
+            }
+            return;
+        }
+        if(calcState.startsWith('REG_MINMAX_MENU_')) {
+            const page=Number(calcState.split('_').pop());
+            const tokens=page===1?['\u200BminX\u200B','\u200BmaxX\u200B','\u200BminY\u200B']:['\u200BmaxY\u200B'];
+            if(tokens[Number(numStr)-1])regInsertToken(tokens[Number(numStr)-1]);
+            return;
+        }
+        if(regMode && isShift && numStr==='1') {
+            isShift=false; calcState='REG_SUM_MENU_1'; expr=''; updateDisplay(); return;
+        }
+        if(regMode && isShift && numStr==='2') {
+            isShift=false; calcState='REG_VAR_ROOT'; updateDisplay(); return;
+        }
+        if(regMode && isShift && numStr==='9') {
+            isShift=false; calcState='STAT_CLEAR_CONFIRM'; updateDisplay(); return;
+        }
+        return __handleNumOriginal(numStr);
+    };
+
+    handleModeSetup = function() {
+        if(isShift) { isShift=false; calcState='SETUP_MENU_1'; updateDisplay(); return; }
+        return __handleModeSetupOriginal();
+    };
+    navigateHistory = function(dir) {
+        if(calcState==='REG_TYPE_MENU_1'||calcState==='REG_TYPE_MENU_2') {
+            if(dir==='RIGHT'||dir==='DOWN')calcState=calcState==='REG_TYPE_MENU_1'?'REG_TYPE_MENU_2':'REG_TYPE_MENU_1';
+            if(dir==='LEFT'||dir==='UP')calcState=calcState==='REG_TYPE_MENU_2'?'REG_TYPE_MENU_1':'REG_TYPE_MENU_2';
+            updateDisplay();return;
+        }
+        if(calcState.startsWith('REG_SUM_MENU_')) {
+            let page=Number(calcState.split('_').pop());
+            if(dir==='RIGHT'||dir==='DOWN')page=page>=3?1:page+1;
+            else if(dir==='LEFT'||dir==='UP')page=page<=1?3:page-1;
+            calcState='REG_SUM_MENU_'+page;updateDisplay();return;
+        }
+        if(calcState.startsWith('REG_VAR_MENU_')) {
+            let page=Number(calcState.split('_').pop());
+            if(dir==='RIGHT'||dir==='DOWN')page=page>=5?1:page+1;
+            else if(dir==='LEFT'||dir==='UP')page=page<=1?5:page-1;
+            calcState='REG_VAR_MENU_'+page;updateDisplay();return;
+        }
+        if(calcState.startsWith('REG_MINMAX_MENU_')) {
+            calcState=calcState.endsWith('_1')?'REG_MINMAX_MENU_2':'REG_MINMAX_MENU_1';updateDisplay();return;
+        }
+        if(calcState.startsWith('SETUP_MENU_')) {
+            let page=Number(calcState.split('_').pop());
+            if(dir==='RIGHT'||dir==='DOWN')page=page>=3?1:page+1;
+            else if(dir==='LEFT'||dir==='UP')page=page<=1?3:page-1;
+            calcState='SETUP_MENU_'+page;updateDisplay();return;
+        }
+        if(regMode && regReplayHistory.length && (dir==='UP'||dir==='DOWN')) {
+            if(!regReplayActive) {regReplayActive=true;regReplayIndex=dir==='UP'?regReplayHistory.length:-1;}
+            regReplayIndex += dir==='UP'?-1:1;
+            if(regReplayIndex>=0 && regReplayIndex<regReplayHistory.length) {
+                const item=regReplayHistory[regReplayIndex];
+                regCurrentField={rowIndex:item.rowIndex,field:item.field};
+                const hh=document.getElementById('history');if(hh)hh.innerText=item.label+'=';
+                expr=String(item.value);ans=item.value;isResultDisplayed=true;
+            } else if(regReplayIndex>=regReplayHistory.length) {
+                regReplayIndex=regReplayHistory.length;regCurrentField=null;
+                const hh=document.getElementById('history');if(hh)hh.innerText='Line=';
+                expr=String(regData.length);ans=regData.length;isResultDisplayed=true;
+            } else {regReplayIndex=-1;regCurrentField=null;}
+            updateDisplay();return;
+        }
+        return __navigateHistoryOriginal(dir);
+    };
+
+    handleMPlus = function() {
+        if(regMode) {
+            const hh=document.getElementById('history');
+            if(isShift) {
+                if(regCurrentField && regData[regCurrentField.rowIndex]) {
+                    regData.splice(regCurrentField.rowIndex,1);rebuildRegReplayHistory();
+                    if(hh)hh.innerText='Line=';expr=String(regData.length);isResultDisplayed=true;isShift=false;updateDisplay();return;
+                }
+                isShift=false;expr='Math ERROR';updateDisplay();return;
+            }
+            try {
+                const text=(expr||'').trim();if(!text)throw new Error('Syntax ERROR');
+                const splitFreq=text.split(';');if(splitFreq.length>2)throw new Error('Syntax ERROR');
+                const pair=splitFreq[0].split(',');if(pair.length!==2||!pair[0].trim()||!pair[1].trim())throw new Error('Syntax ERROR');
+                const x=Number(evaluateMathString(pair[0].trim())), y=Number(evaluateMathString(pair[1].trim()));
+                let f=1;
+                if(freqOn && splitFreq.length===2) f=Number(evaluateMathString(splitFreq[1].trim()));
+                else if(!freqOn && splitFreq.length===2) throw new Error('Syntax ERROR');
+                const max=freqOn?26:40;
+                if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isInteger(f)||f<1||regData.length>=max)throw new Error('Math ERROR');
+                regData.push({x,y,frequency:freqOn?f:1});rebuildRegReplayHistory();
+                calcState='NORMAL';if(hh)hh.innerText='Line=';expr=String(regData.length);ans=regData.length;isResultDisplayed=true;
+            } catch(e) {expr=e.message==='Math ERROR'?'Math ERROR':'Syntax ERROR';}
+            updateDisplay();return;
+        }
+        return __handleMPlusOriginal();
+    };
+
+    // REG sample editing: recall with Replay, type replacement value, then EXE.
+    calculate = function() {
+        if(calcState==='STAT_CLEAR_EXEC') {
+            sdData=[];sdEntries=[];sdReplayHistory=[];regData=[];regReplayHistory=[];
+            regReplayIndex=-1;regReplayActive=false;regCurrentField=null;regEditTarget=null;
+            calcState='NORMAL';expr='0';ans=0;isResultDisplayed=true;updateDisplay();return;
+        }
+        if(calcState==='STAT_CLEAR_CONFIRM') {return;}
+        // Route FMLA command entry/input/output through the original formula engine in every mode.
+        if(calcState==='FMLA_INPUT' || calcState==='FMLA_OUTPUT' || calcState==='FMLA_BROWSE' || /^FMLA\s*0?([1-9]|1[0-9]|2[0-3])$/i.test((expr||'').trim())) {
+            lastComplexResult=null; complexDisplayPart='REAL'; complexFormatOverride=null;
+            return __calculateOriginal();
+        }
+        if(regMode && regEditTarget) {
+            try {
+                const v=Number(evaluateMathString(expr));
+                if(!Number.isFinite(v))throw new Error('Math ERROR');
+                const row=regData[regEditTarget.rowIndex];if(!row)throw new Error('Math ERROR');
+                if(regEditTarget.field==='frequency') {if(!Number.isInteger(v)||v<1)throw new Error('Math ERROR');row.frequency=v;}
+                else row[regEditTarget.field]=v;
+                regEditTarget=null;rebuildRegReplayHistory();calcState='NORMAL';expr=String(v);ans=v;isResultDisplayed=true;
+                const hh=document.getElementById('history');if(hh)hh.innerText='';updateDisplay();return;
+            } catch(e) {regEditTarget=null;expr=e.message==='Math ERROR'?'Math ERROR':'Syntax ERROR';updateDisplay();return;}
+        }
+        if(cmplxMode && isShift && lastComplexResult && isResultDisplayed) {
+            complexDisplayPart=complexDisplayPart==='REAL'?'IMAG':'REAL';isShift=false;updateDisplay();return;
+        }
+        const previousComplexFormat=complexFormatOverride;
+        if(cmplxMode) {
+            complexLastFormat=complexFormatOverride||complexDefaultFormat;
+            complexFormatOverride=null;
+            if(!expr) return;
+            try {
+                const result=evaluateMathString(expr);
+                if(typeof result==='string') { ans=result; expr=result; }
+                else { ans=result; expr=String(result); }
+                calcHistory.push({expression:document.getElementById('history')?.innerText||expr,result:String(result)});
+                historyIndex=calcHistory.length;isResultDisplayed=true;
+                const hh=document.getElementById('history');if(hh)hh.innerText=expr;
+                // For a pure imaginary result in rectangular mode, show the
+                // imaginary coefficient immediately (i -> 1.i). For a polar
+                // result, keep the magnitude-first behaviour from the manual.
+                complexDisplayPart = (complexLastFormat==='RECT' && lastComplexResult &&
+                    Math.abs(lastComplexResult.re)<1e-12 && Math.abs(lastComplexResult.im)>1e-12)
+                    ? 'IMAG' : 'REAL';
+                updateDisplay();
+            } catch(e) {lastComplexResult=null;expr=e.message==='Math ERROR'?'Math ERROR':'Syntax ERROR';updateDisplay();}
+            return;
+        }
+        return __calculateOriginal();
+    };
+
+    // Keep trigonometry consistent with DEG/RAD/GRA setup across COMP, REG and CMPLX.
+    function angleToRadians(x) { return angleUnit==='DEG' ? x*Math.PI/180 : (angleUnit==='GRA' ? x*Math.PI/200 : x); }
+    function radiansToAngle(x) { return angleUnit==='DEG' ? x*180/Math.PI : (angleUnit==='GRA' ? x*200/Math.PI : x); }
+    mathLib.sin = x => Math.sin(angleToRadians(Number(x)));
+    mathLib.cos = x => Math.cos(angleToRadians(Number(x)));
+    mathLib.tan = x => Math.tan(angleToRadians(Number(x)));
+    mathLib.asin = x => radiansToAngle(Math.asin(Number(x)));
+    mathLib.acos = x => radiansToAngle(Math.acos(Number(x)));
+    mathLib.atan = x => radiansToAngle(Math.atan(Number(x)));
+    toggleDegRad = function() { angleUnit=angleUnit==='DEG'?'RAD':'DEG';isDeg=angleUnit==='DEG';const d=document.getElementById('ind-deg');if(d)d.innerText=angleUnit==='DEG'?'D':'R';updateDisplay(); };
+
+    // Resolve regression command function references after the original mathLib has loaded.
+    mathLib.reg_xhat = (y) => regEstimateX(Number(y),1);
+    mathLib.reg_xhat1 = (y) => regEstimateX(Number(y),1);
+    mathLib.reg_xhat2 = (y) => regEstimateX(Number(y),2);
+    mathLib.reg_yhat = (x) => regPredictY(Number(x));
+    // These names are also added to the original evaluator destructuring below.
+
+    // A CMPLX input key is ENG (i) in normal or SHIFT state; result Re<->Im is SHIFT+EXE.
+    // Shifted +/- are the manual's per-calculation rectangular/polar format overrides.
+
+    // Pointer movement also positions the magnifier on touch-enabled devices.
+    document.addEventListener('pointermove', e => {
+        lastMouseEvent = { clientX: e.clientX, clientY: e.clientY };
+        if (isMagnifying) updateMagnifier();
+    }, { passive: true });
+
+    // Keep the floating glow from lingering when the highlight mode is switched off.
+    const __toggleHighlightOriginal = toggleHighlight;
+    toggleHighlight = function() {
+        highlightMode=!highlightMode;
+        const btn=document.getElementById('highlight-btn');if(btn)btn.classList.toggle('highlight-active',highlightMode);
+        if(!highlightMode) {
+            clearTimeout(highlightTimer);highlightTimer=null;
+            document.querySelectorAll('#main-calc .key-highlight, #lens .key-highlight').forEach(el=>el.classList.remove('key-highlight'));
+            if(isMagnifying)updateMagnifier();
+        }
+    };
+
 </script>
 
 </body>
